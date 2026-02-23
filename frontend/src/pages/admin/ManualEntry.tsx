@@ -143,8 +143,8 @@ export default function ManualEntry() {
 
   if (loading || !authResolved) {
     return (
-      <div className="px-4 py-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">Manual Entry</h1>
+      <div className="sc-page px-4 py-6">
+        <h1 className="text-3xl sc-title mb-6">Manual Entry</h1>
         <p className="text-gray-500">Resolving session...</p>
       </div>
     )
@@ -152,24 +152,24 @@ export default function ManualEntry() {
 
   if (pageLoading) {
     return (
-      <div className="px-4 py-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">Manual Entry</h1>
+      <div className="sc-page px-4 py-6">
+        <h1 className="text-3xl sc-title mb-6">Manual Entry</h1>
         <p className="text-gray-500">Loading buildings...</p>
       </div>
     )
   }
 
   return (
-    <div className="px-4 py-6">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Manual Entry</h1>
-      <p className="text-sm text-gray-600 mb-4">
+    <div className="sc-page px-4 py-6">
+      <h1 className="text-3xl sc-title mb-6">Manual Entry</h1>
+      <p className="text-sm sc-subtitle mb-4">
         Select existing building (scroll list), or choose <strong>Others</strong> to create a new building and add reading in one flow.
       </p>
-      <p className="text-sm text-gray-600 mb-4">
+      <p className="text-sm sc-subtitle mb-4">
         Building metadata can also be managed in <Link to="/buildings" className="text-blue-600 hover:underline">Buildings</Link>.
       </p>
 
-      <div className="bg-white rounded-lg shadow p-6 max-w-2xl">
+      <div className="sc-card p-6 max-w-2xl">
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Building</label>
@@ -177,7 +177,7 @@ export default function ManualEntry() {
               required
               size={14}
               aria-invalid={!!fieldErrors.building_id}
-              className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${fieldErrors.building_id ? 'border-red-500' : ''}`}
+              className={`sc-input block w-full ${fieldErrors.building_id ? 'border-red-500' : ''}`}
               value={formData.building_id}
               onChange={(e) => {
                 setFormData({ ...formData, building_id: e.target.value })
@@ -202,13 +202,13 @@ export default function ManualEntry() {
           </div>
 
           {isOther && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-gray-200 rounded-xl p-4 bg-gray-50">
               <div className="md:col-span-2 text-sm font-medium text-gray-700">New Building Details</div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
                 <input
                   type="text"
-                  className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${fieldErrors.new_building_name ? 'border-red-500' : ''}`}
+                  className={`sc-input block w-full ${fieldErrors.new_building_name ? 'border-red-500' : ''}`}
                   value={formData.new_building_name}
                   onChange={(e) => setFormData({ ...formData, new_building_name: e.target.value })}
                 />
@@ -218,7 +218,7 @@ export default function ManualEntry() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Code (optional)</label>
                 <input
                   type="text"
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="sc-input block w-full"
                   value={formData.new_building_code}
                   onChange={(e) => setFormData({ ...formData, new_building_code: e.target.value })}
                 />
@@ -227,7 +227,7 @@ export default function ManualEntry() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
                 <input
                   type="text"
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="sc-input block w-full"
                   value={formData.new_building_description}
                   onChange={(e) => setFormData({ ...formData, new_building_description: e.target.value })}
                 />
@@ -238,7 +238,7 @@ export default function ManualEntry() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Utility</label>
             <select
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="sc-input block w-full"
               value={formData.utility_type}
               onChange={(e) => setFormData({ ...formData, utility_type: e.target.value as 'water' | 'electricity' })}
             >
@@ -254,7 +254,7 @@ export default function ManualEntry() {
               min={0}
               required
               aria-invalid={!!fieldErrors.value}
-              className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${fieldErrors.value ? 'border-red-500' : ''}`}
+              className={`sc-input block w-full ${fieldErrors.value ? 'border-red-500' : ''}`}
               value={formData.value}
               onChange={(e) => {
                 setFormData({ ...formData, value: e.target.value })
@@ -267,7 +267,7 @@ export default function ManualEntry() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Date & time</label>
             <input
               type="datetime-local"
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="sc-input block w-full"
               value={formData.reading_date}
               onChange={(e) => setFormData({ ...formData, reading_date: e.target.value })}
             />
@@ -276,7 +276,7 @@ export default function ManualEntry() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
             <input
               type="text"
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="sc-input block w-full"
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             />
@@ -285,7 +285,7 @@ export default function ManualEntry() {
           <button
             type="submit"
             disabled={submitLoading || (sortedBuildings.length === 0 && !isOther)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md disabled:opacity-50"
+            className="sc-btn sc-btn-primary px-4 py-2 disabled:opacity-50"
           >
             {submitLoading ? 'Saving...' : 'Add Reading'}
           </button>

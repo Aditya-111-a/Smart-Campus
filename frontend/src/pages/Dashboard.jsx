@@ -75,14 +75,14 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="px-4 py-6">
+    <div className="sc-page px-4 py-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <h1 className="text-3xl sc-title">Dashboard</h1>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Utility</span>
+            <span className="text-sm sc-subtitle">Utility</span>
             <select
-              className="border-gray-300 rounded-md text-sm"
+              className="sc-input text-sm px-2 py-1.5"
               value={filters.utility}
               onChange={(e) => setFilters((f) => ({ ...f, utility: e.target.value }))}
             >
@@ -91,9 +91,9 @@ export default function Dashboard() {
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Range</span>
+            <span className="text-sm sc-subtitle">Range</span>
             <select
-              className="border-gray-300 rounded-md text-sm"
+              className="sc-input text-sm px-2 py-1.5"
               value={filters.days}
               onChange={(e) => setFilters((f) => ({ ...f, days: Number(e.target.value) || 30 }))}
             >
@@ -110,7 +110,7 @@ export default function Dashboard() {
 
       {/* Total Consumption Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="sc-card p-6">
           <h3 className="text-lg font-semibold text-gray-700 mb-2">Total Water Consumption</h3>
           <p className="text-3xl font-bold text-blue-600">
             {totals?.total_water?.toLocaleString('en-US', { maximumFractionDigits: 2 }) || 0} L
@@ -120,7 +120,7 @@ export default function Dashboard() {
             {format(new Date(totals?.period_end || new Date()), 'MMM dd, yyyy')}
           </p>
         </div>
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="sc-card p-6">
           <h3 className="text-lg font-semibold text-gray-700 mb-2">Total Electricity Consumption</h3>
           <p className="text-3xl font-bold text-green-600">
             {totals?.total_electricity?.toLocaleString('en-US', { maximumFractionDigits: 2 }) || 0} kWh
@@ -133,8 +133,8 @@ export default function Dashboard() {
       </div>
 
       {/* Consumption Trend Chart */}
-      <div className="bg-white rounded-lg shadow p-6 mb-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Consumption Trend (Last {filters.days} Days)</h2>
+      <div className="sc-card p-6 mb-8">
+        <h2 className="text-xl sc-title mb-4">Consumption Trend (Last {filters.days} Days)</h2>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={summary}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -155,8 +155,8 @@ export default function Dashboard() {
 
       {/* Zone contribution + Building Rankings */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Zone Contribution ({filters.utility})</h2>
+        <div className="sc-card p-6">
+          <h2 className="text-xl sc-title mb-4">Zone Contribution ({filters.utility})</h2>
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
               <Pie
@@ -185,8 +185,8 @@ export default function Dashboard() {
           </ul>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6 lg:col-span-2">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Top Consumers</h2>
+        <div className="sc-card p-6 lg:col-span-2">
+          <h2 className="text-xl sc-title mb-4">Top Consumers</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h3 className="text-sm font-semibold text-gray-700 mb-2">Water</h3>
@@ -234,7 +234,7 @@ export default function Dashboard() {
 
       {/* Dev-only: quick reset to VIT default demo state */}
       {import.meta?.env?.DEV && user?.role === 'admin' && (
-        <div className="mt-8 bg-white rounded-lg shadow p-4 border border-dashed border-red-300">
+        <div className="mt-8 sc-card p-4 border-dashed border-red-300">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold text-gray-800">Reset to VIT default state (dev only)</h2>
@@ -244,7 +244,7 @@ export default function Dashboard() {
             </div>
             <button
               type="button"
-              className="self-start md:self-auto inline-flex items-center px-3 py-1.5 rounded-md border border-red-500 text-xs font-medium text-red-600 hover:bg-red-50"
+              className="sc-btn sc-btn-danger self-start md:self-auto inline-flex items-center px-3 py-1.5 text-xs"
               onClick={async () => {
                 if (!window.confirm('Reset the database to VIT default demo data? This will erase current data.')) return
                 try {

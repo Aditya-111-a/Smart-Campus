@@ -194,39 +194,39 @@ export default function Alerts() {
   }
 
   return (
-    <div className="px-4 py-6">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
+    <div className="sc-page px-4 py-6">
+      <div className="sc-card p-4 mb-6">
         <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">Alerts</h1>
+          <h1 className="text-3xl sc-title">Alerts</h1>
           <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-md ${
-              filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
+            className={`sc-btn px-4 py-2 ${
+              filter === 'all' ? 'sc-btn-primary text-white' : 'sc-btn-secondary'
             }`}
           >
             All
           </button>
           <button
             onClick={() => setFilter('pending')}
-            className={`px-4 py-2 rounded-md ${
-              filter === 'pending' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
+            className={`sc-btn px-4 py-2 ${
+              filter === 'pending' ? 'sc-btn-primary text-white' : 'sc-btn-secondary'
             }`}
           >
             Pending
           </button>
           <button
             onClick={() => setFilter('acknowledged')}
-            className={`px-4 py-2 rounded-md ${
-              filter === 'acknowledged' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
+            className={`sc-btn px-4 py-2 ${
+              filter === 'acknowledged' ? 'sc-btn-primary text-white' : 'sc-btn-secondary'
             }`}
           >
             Acknowledged
           </button>
           <button
             onClick={() => setFilter('resolved')}
-            className={`px-4 py-2 rounded-md ${
-              filter === 'resolved' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
+            className={`sc-btn px-4 py-2 ${
+              filter === 'resolved' ? 'sc-btn-primary text-white' : 'sc-btn-secondary'
             }`}
           >
             Resolved
@@ -235,7 +235,7 @@ export default function Alerts() {
         </div>
       </div>
 
-      <div className="bg-white shadow-sm overflow-hidden sm:rounded-xl border border-gray-100">
+      <div className="sc-card p-0 overflow-hidden">
         <ul className="divide-y divide-gray-200">
           {error && (
             <li className="px-6 py-4 text-center text-red-600 text-sm">{error}</li>
@@ -276,13 +276,13 @@ export default function Alerts() {
                       <>
                         <button
                           onClick={() => handleAcknowledge(alert.id)}
-                          className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-sm"
+                          className="sc-btn sc-btn-secondary px-3 py-1 text-sm"
                         >
                           Acknowledge
                         </button>
                         <button
                           onClick={() => handleResolve(alert.id)}
-                          className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                          className="sc-btn sc-btn-primary px-3 py-1 text-sm"
                         >
                           Resolve
                         </button>
@@ -291,7 +291,7 @@ export default function Alerts() {
                     {alert.status === 'acknowledged' && (
                       <button
                         onClick={() => handleResolve(alert.id)}
-                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                        className="sc-btn sc-btn-primary px-3 py-1 text-sm"
                       >
                         Resolve
                       </button>
@@ -306,32 +306,32 @@ export default function Alerts() {
 
       {user?.role === 'admin' && (
         <div className="mt-8 space-y-4">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="sc-card p-6">
             <h2 className="text-xl font-bold mb-4">Dynamic Alert Rules</h2>
             <form className="grid grid-cols-1 md:grid-cols-3 gap-3" onSubmit={handleCreateRule}>
               <input
-                className="rounded border-gray-300"
+                className="sc-input px-3 py-2"
                 placeholder="Rule name"
                 value={ruleForm.name}
                 onChange={(e) => setRuleForm({ ...ruleForm, name: e.target.value })}
                 required
               />
-              <select className="rounded border-gray-300" value={ruleForm.scope_type} onChange={(e) => setRuleForm({ ...ruleForm, scope_type: e.target.value })}>
+              <select className="sc-input px-3 py-2" value={ruleForm.scope_type} onChange={(e) => setRuleForm({ ...ruleForm, scope_type: e.target.value })}>
                 <option value="global">Global</option>
                 <option value="zone">Category (Zone)</option>
                 <option value="building">Building</option>
               </select>
-              <select className="rounded border-gray-300" value={ruleForm.utility_type} onChange={(e) => setRuleForm({ ...ruleForm, utility_type: e.target.value })}>
+              <select className="sc-input px-3 py-2" value={ruleForm.utility_type} onChange={(e) => setRuleForm({ ...ruleForm, utility_type: e.target.value })}>
                 <option value="water">Water</option>
                 <option value="electricity">Electricity</option>
               </select>
-              <select className="rounded border-gray-300" value={ruleForm.condition_type} onChange={(e) => setRuleForm({ ...ruleForm, condition_type: e.target.value })}>
+              <select className="sc-input px-3 py-2" value={ruleForm.condition_type} onChange={(e) => setRuleForm({ ...ruleForm, condition_type: e.target.value })}>
                 <option value="threshold">Threshold</option>
                 <option value="zscore">Z-score</option>
                 <option value="rate_of_change">Rate of change (%)</option>
               </select>
               <input
-                className="rounded border-gray-300"
+                className="sc-input px-3 py-2"
                 type="number"
                 step="any"
                 placeholder="Threshold / Trigger value"
@@ -339,13 +339,13 @@ export default function Alerts() {
                 onChange={(e) => setRuleForm({ ...ruleForm, threshold_value: e.target.value })}
                 required
               />
-              <select className="rounded border-gray-300" value={ruleForm.severity} onChange={(e) => setRuleForm({ ...ruleForm, severity: e.target.value })}>
+              <select className="sc-input px-3 py-2" value={ruleForm.severity} onChange={(e) => setRuleForm({ ...ruleForm, severity: e.target.value })}>
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
               </select>
               {ruleForm.scope_type === 'zone' && (
-                <select className="rounded border-gray-300 md:col-span-2" value={ruleForm.zone} onChange={(e) => setRuleForm({ ...ruleForm, zone: e.target.value })} required>
+                <select className="sc-input px-3 py-2 md:col-span-2" value={ruleForm.zone} onChange={(e) => setRuleForm({ ...ruleForm, zone: e.target.value })} required>
                   <option value="">Select zone</option>
                   <option value="academic">Academic</option>
                   <option value="residential">Residential</option>
@@ -355,7 +355,7 @@ export default function Alerts() {
                 </select>
               )}
               {ruleForm.scope_type === 'building' && (
-                <select className="rounded border-gray-300 md:col-span-2" value={ruleForm.building_id} onChange={(e) => setRuleForm({ ...ruleForm, building_id: e.target.value })} required>
+                <select className="sc-input px-3 py-2 md:col-span-2" value={ruleForm.building_id} onChange={(e) => setRuleForm({ ...ruleForm, building_id: e.target.value })} required>
                   <option value="">Select building</option>
                   {buildings.map((b) => (
                     <option key={b.id} value={b.id}>{b.name} ({b.code})</option>

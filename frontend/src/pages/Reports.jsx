@@ -123,15 +123,15 @@ export default function Reports() {
   }
 
   return (
-    <div className="px-4 py-6 space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">Reports & Analytics</h1>
+    <div className="sc-page px-4 py-6 space-y-6">
+      <h1 className="text-3xl sc-title">Reports & Analytics</h1>
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="sc-card p-6">
         <h2 className="text-xl font-bold mb-4">Generate Report</h2>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
-            <select className="block w-full rounded-md border-gray-300" value={reportType} onChange={(e) => setReportType(e.target.value)}>
+            <select className="sc-input block w-full" value={reportType} onChange={(e) => setReportType(e.target.value)}>
               <option value="monthly">Monthly Report</option>
               <option value="custom">Custom Date Range</option>
             </select>
@@ -141,27 +141,27 @@ export default function Reports() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Year</label>
-                <input type="number" className="mt-1 block w-full rounded-md border-gray-300" value={year} onChange={(e) => setYear(parseInt(e.target.value, 10) || year)} />
+                <input type="number" className="sc-input mt-1 block w-full" value={year} onChange={(e) => setYear(parseInt(e.target.value, 10) || year)} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Month</label>
-                <input type="number" min="1" max="12" className="mt-1 block w-full rounded-md border-gray-300" value={month} onChange={(e) => setMonth(parseInt(e.target.value, 10) || month)} />
+                <input type="number" min="1" max="12" className="sc-input mt-1 block w-full" value={month} onChange={(e) => setMonth(parseInt(e.target.value, 10) || month)} />
               </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Start Date</label>
-                <input type="date" className="mt-1 block w-full rounded-md border-gray-300" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                <input type="date" className="sc-input mt-1 block w-full" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">End Date</label>
-                <input type="date" className="mt-1 block w-full rounded-md border-gray-300" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                <input type="date" className="sc-input mt-1 block w-full" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
               </div>
             </div>
           )}
 
-          <button onClick={generateReport} disabled={reportLoading} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md disabled:opacity-50">
+          <button onClick={generateReport} disabled={reportLoading} className="sc-btn sc-btn-primary px-4 py-2 disabled:opacity-50">
             {reportLoading ? 'Generating...' : 'Generate Report'}
           </button>
           {reportError && <p className="text-sm text-red-600">{reportError}</p>}
@@ -170,7 +170,7 @@ export default function Reports() {
 
       {report && (
         <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="sc-card p-6">
             <h2 className="text-2xl font-bold mb-4">Report Summary</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
@@ -192,7 +192,7 @@ export default function Reports() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="sc-card p-6">
             <h3 className="text-xl font-bold mb-4">Top Consumers (Water)</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={report.top_consumers || []}>
@@ -208,12 +208,12 @@ export default function Reports() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="sc-card p-6">
         <h2 className="text-xl font-bold mb-4">Advanced Analytics</h2>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Scope</label>
-            <select className="mt-1 block w-full rounded-md border-gray-300" value={analyticsScope} onChange={(e) => setAnalyticsScope(e.target.value)}>
+            <select className="sc-input mt-1 block w-full" value={analyticsScope} onChange={(e) => setAnalyticsScope(e.target.value)}>
               <option value="overall">Overall</option>
               <option value="category">Category (Zone)</option>
               <option value="building">Particular Building</option>
@@ -221,23 +221,23 @@ export default function Reports() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Utility</label>
-            <select className="mt-1 block w-full rounded-md border-gray-300" value={selectedUtility} onChange={(e) => setSelectedUtility(e.target.value)}>
+            <select className="sc-input mt-1 block w-full" value={selectedUtility} onChange={(e) => setSelectedUtility(e.target.value)}>
               <option value="water">Water</option>
               <option value="electricity">Electricity</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Start</label>
-            <input type="date" className="mt-1 block w-full rounded-md border-gray-300" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <input type="date" className="sc-input mt-1 block w-full" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">End</label>
-            <input type="date" className="mt-1 block w-full rounded-md border-gray-300" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            <input type="date" className="sc-input mt-1 block w-full" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Zone</label>
             <select
-              className="mt-1 block w-full rounded-md border-gray-300 disabled:bg-gray-100"
+              className="sc-input mt-1 block w-full disabled:bg-gray-100"
               value={zoneFilter}
               disabled={analyticsScope !== 'category'}
               onChange={(e) => setZoneFilter(e.target.value)}
@@ -258,7 +258,7 @@ export default function Reports() {
           </label>
           <select
             multiple
-            className="mt-1 block w-full rounded-md border-gray-300 min-h-[120px] disabled:bg-gray-100"
+            className="sc-input mt-1 block w-full min-h-[120px] disabled:bg-gray-100"
             disabled={analyticsScope !== 'building'}
             value={selectedBuildings.map(String)}
             onChange={(e) => {
@@ -279,7 +279,7 @@ export default function Reports() {
           )}
         </div>
 
-        <button onClick={runAnalytics} disabled={analyticsLoading} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md disabled:opacity-50">
+        <button onClick={runAnalytics} disabled={analyticsLoading} className="sc-btn sc-btn-primary px-4 py-2 disabled:opacity-50">
           {analyticsLoading ? 'Running...' : 'Run Analytics'}
         </button>
         {analyticsError && <p className="text-sm text-red-600 mt-2">{analyticsError}</p>}
@@ -287,7 +287,7 @@ export default function Reports() {
 
       {analytics && (
         <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="sc-card p-6">
             <h3 className="text-xl font-bold mb-3">Statistics Summary</h3>
             <p className="text-sm text-gray-600 mb-3">
               Filters: scope={analyticsScope}, utility={analytics.utility_type}, zone={analytics.filters?.zone || 'all'}, buildings={analytics.filters?.building_ids?.length || 0},
@@ -305,7 +305,7 @@ export default function Reports() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="sc-card p-6">
             <h3 className="text-xl font-bold mb-4">Trend, Moving Average, Cumulative Sum</h3>
             <ResponsiveContainer width="100%" height={320}>
               <LineChart data={analytics.series || []}>
@@ -322,7 +322,7 @@ export default function Reports() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="sc-card p-6">
               <h3 className="text-xl font-bold mb-4">Per-Building Aggregation</h3>
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={analytics.per_building || []}>

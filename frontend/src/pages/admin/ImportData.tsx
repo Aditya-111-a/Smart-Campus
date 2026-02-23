@@ -71,15 +71,15 @@ export default function ImportData() {
   }
 
   return (
-    <div className="px-4 py-6">
+    <div className="sc-page px-4 py-6">
       {(authLoading || !authResolved) && (
         <div className="mb-4 p-3 rounded border border-gray-200 bg-gray-50 text-sm text-gray-700">
           Resolving session before import actions...
         </div>
       )}
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Import Data</h1>
+      <h1 className="text-3xl sc-title mb-6">Import Data</h1>
 
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="sc-card p-6 mb-6">
         <h2 className="text-lg font-semibold text-gray-800 mb-2">Supported CSV / Excel format</h2>
         <p className="text-gray-600 mb-2">Use a <strong>.csv</strong> or <strong>.xlsx</strong> file with these columns (headers are case-insensitive):</p>
         <ul className="list-disc list-inside text-gray-600 mb-2 space-y-1">
@@ -91,7 +91,7 @@ export default function ImportData() {
         <p className="text-sm text-gray-500">If a building name/code is not in the system, it will be created automatically. Extra columns are ignored.</p>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="sc-card p-6 mb-6">
         <h2 className="text-lg font-semibold text-gray-800 mb-2">Upload file</h2>
         <p className="text-gray-600 mb-4">Choose a CSV or Excel file with the columns above.</p>
         <form onSubmit={handleSubmit}>
@@ -115,7 +115,7 @@ export default function ImportData() {
           <button
             type="submit"
             disabled={loading || !file}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md disabled:opacity-50"
+            className="sc-btn sc-btn-primary px-4 py-2 disabled:opacity-50"
           >
             {loading ? 'Importing...' : 'Import'}
           </button>
@@ -123,7 +123,7 @@ export default function ImportData() {
       </div>
 
       {result && (
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="sc-card p-6">
           <h2 className="text-xl font-bold mb-4">Import Result</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <div>

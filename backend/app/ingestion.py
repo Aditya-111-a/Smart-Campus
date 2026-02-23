@@ -48,7 +48,7 @@ def parse_import_value(raw_value: object) -> float:
 
 def resolve_building_for_import(db: Session, building_label: str, created_by: int) -> Building:
     normalized = (building_label or "").strip()
-    if not normalized:
+    if not normalized or normalized.lower() in {"nan", "none", "null", "na", "n/a"}:
         raise ValueError("building is empty")
 
     building = (

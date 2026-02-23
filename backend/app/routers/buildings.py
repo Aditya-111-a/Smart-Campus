@@ -6,7 +6,7 @@ from sqlalchemy import and_, case, func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Building, User, UtilityReading, UtilityType
+from app.models import Building, User, UtilityReading, UtilityType, Alert, AlertRule, IoTDevice
 from app.schemas import (
     BuildingCreate,
     BuildingUpdate,
@@ -177,6 +177,12 @@ def create_building(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
 ):
+    if not (building.name or "").strip() or (building.name or "").strip().lower() in {"nan", "none", "null"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Building name is required",
+        )
+
     # Normalise campus name
     campus_name = building.campus_name or "VIT Vellore"
 
@@ -240,6 +246,13 @@ def update_building(
         )
     
     update_data = building_update.dict(exclude_unset=True)
+    if "name" in update_data:
+        candidate_name = (update_data.get("name") or "").strip().lower()
+        if not candidate_name or candidate_name in {"nan", "none", "null"}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Building name is required",
+            )
     next_code = update_data.get("code")
     if next_code and next_code != building.code:
         existing = db.query(Building).filter(Building.code == next_code).first()
@@ -267,7 +280,23 @@ def delete_building(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Building not found"
         )
-    
+    # Remove dependent data first so delete works for seeded/active buildings.
+    reading_ids = [
+        row[0]
+        for row in db.query(UtilityReading.id)
+        .filter(UtilityReading.building_id == building_id)
+        .all()
+    ]
+    if reading_ids:
+        db.query(Alert).filter(Alert.reading_id.in_(reading_ids)).update(
+            {"reading_id": None},
+            synchronize_session=False,
+        )
+
+    db.query(AlertRule).filter(AlertRule.building_id == building_id).delete(synchronize_session=False)
+    db.query(Alert).filter(Alert.building_id == building_id).delete(synchronize_session=False)
+    db.query(IoTDevice).filter(IoTDevice.building_id == building_id).delete(synchronize_session=False)
+    db.query(UtilityReading).filter(UtilityReading.building_id == building_id).delete(synchronize_session=False)
     db.delete(building)
     db.commit()
     return None

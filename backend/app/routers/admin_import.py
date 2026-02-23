@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.auth import get_current_admin_user
 from app.database import get_db, engine
-from app.models import User
+from app.models import User, Building
 from app.schemas import ImportSummary, ImportErrorRow
 from app.vit_buildings import vit_building_definitions
 from app.schemas import ReadingCreate
@@ -85,7 +85,10 @@ async def import_readings(
         row_number = idx + 2  # header is row 1
         try:
             timestamp_raw = row.get("timestamp")
-            building_label = str(row.get("building")).strip()
+            building_raw = row.get("building")
+            if pd.isna(building_raw):
+                raise ValueError("building is empty")
+            building_label = str(building_raw).strip()
             utility_raw = row.get("utility")
             value_raw = row.get("value")
 

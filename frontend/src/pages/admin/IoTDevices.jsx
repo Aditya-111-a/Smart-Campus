@@ -83,33 +83,33 @@ export default function IoTDevices() {
   if (authLoading || !authResolved) return <div className="text-center py-12">Resolving session...</div>
 
   return (
-    <div className="px-4 py-6 space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">IoT Device Integration</h1>
-      <p className="text-sm text-gray-600">
+    <div className="sc-page px-4 py-6 space-y-6">
+      <h1 className="text-3xl sc-title">IoT Device Integration</h1>
+      <p className="text-sm sc-subtitle">
         Register building devices now, then send real-time data to <code>/api/iot/ingest</code> with either global API key or per-device key.
       </p>
 
       {error && <div className="p-3 rounded border border-red-200 bg-red-50 text-red-700 text-sm">{error}</div>}
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="sc-card p-6">
         <h2 className="text-lg font-semibold mb-4">Register Device</h2>
         <form className="grid grid-cols-1 md:grid-cols-3 gap-3" onSubmit={handleCreate}>
           <input
-            className="rounded border-gray-300"
+            className="sc-input px-3 py-2"
             placeholder="Device ID"
             value={form.device_id}
             onChange={(e) => setForm({ ...form, device_id: e.target.value })}
             required
           />
           <input
-            className="rounded border-gray-300"
+            className="sc-input px-3 py-2"
             placeholder="Device Name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
           />
           <select
-            className="rounded border-gray-300"
+            className="sc-input px-3 py-2"
             value={form.building_id}
             onChange={(e) => setForm({ ...form, building_id: e.target.value })}
             required
@@ -120,7 +120,7 @@ export default function IoTDevices() {
             ))}
           </select>
           <select
-            className="rounded border-gray-300"
+            className="sc-input px-3 py-2"
             value={form.utility_type}
             onChange={(e) => setForm({ ...form, utility_type: e.target.value })}
           >
@@ -128,7 +128,7 @@ export default function IoTDevices() {
             <option value="electricity">Electricity</option>
           </select>
           <input
-            className="rounded border-gray-300 md:col-span-2"
+            className="sc-input px-3 py-2 md:col-span-2"
             placeholder="Device Key (secret)"
             value={form.device_key}
             onChange={(e) => setForm({ ...form, device_key: e.target.value })}
@@ -137,17 +137,17 @@ export default function IoTDevices() {
           <button
             type="submit"
             disabled={saving}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md disabled:opacity-50 md:col-span-3"
+            className="sc-btn sc-btn-primary px-4 py-2 disabled:opacity-50 md:col-span-3"
           >
             {saving ? 'Saving...' : 'Add Device'}
           </button>
         </form>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="sc-card p-6">
         <h2 className="text-lg font-semibold mb-4">Registered Devices</h2>
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="min-w-full text-sm sc-table">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-3 py-2 text-left">Device</th>
@@ -168,8 +168,8 @@ export default function IoTDevices() {
                   <td className="px-3 py-2">{d.is_active ? 'Active' : 'Inactive'}</td>
                   <td className="px-3 py-2">
                     <div className="flex gap-2">
-                      <button onClick={() => handleToggle(d)} className="text-xs px-2 py-1 rounded border border-blue-300 text-blue-700">Toggle</button>
-                      <button onClick={() => handleDelete(d)} className="text-xs px-2 py-1 rounded border border-red-300 text-red-700">Delete</button>
+                      <button onClick={() => handleToggle(d)} className="sc-btn sc-btn-secondary text-xs px-2 py-1">Toggle</button>
+                      <button onClick={() => handleDelete(d)} className="sc-btn sc-btn-danger text-xs px-2 py-1">Delete</button>
                     </div>
                   </td>
                 </tr>

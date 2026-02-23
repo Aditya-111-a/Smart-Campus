@@ -152,13 +152,13 @@ export default function Buildings() {
   }
 
   return (
-    <div className="px-4 py-6">
+    <div className="sc-page px-4 py-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">All Buildings Overview</h1>
+        <h1 className="text-3xl sc-title">All Buildings Overview</h1>
         {user?.role === 'admin' && (
           <button
             onClick={() => setShowForm(!showForm)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+            className="sc-btn sc-btn-primary px-4 py-2"
           >
             {showForm ? 'Cancel' : 'Add Building'}
           </button>
@@ -171,7 +171,7 @@ export default function Buildings() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
+      <div className="sc-card p-4 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
           <div>
             <p className="text-gray-500">Campus</p>
@@ -193,7 +193,7 @@ export default function Buildings() {
       </div>
 
       {showForm && user?.role === 'admin' && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="sc-card p-6 mb-6">
           <h2 className="text-xl font-bold mb-4">Add New Building</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -201,7 +201,7 @@ export default function Buildings() {
               <input
                 type="text"
                 required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="sc-input mt-1 block w-full"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
@@ -210,7 +210,7 @@ export default function Buildings() {
               <label className="block text-sm font-medium text-gray-700">Code</label>
               <input
                 type="text"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="sc-input mt-1 block w-full"
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value })}
               />
@@ -218,7 +218,7 @@ export default function Buildings() {
             <div>
               <label className="block text-sm font-medium text-gray-700">Description</label>
               <textarea
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="sc-input mt-1 block w-full"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
@@ -229,7 +229,7 @@ export default function Buildings() {
                 <input
                   type="number"
                   required
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="sc-input mt-1 block w-full"
                   value={formData.water_threshold}
                   onChange={(e) => setFormData({ ...formData, water_threshold: parseFloat(e.target.value) })}
                 />
@@ -239,7 +239,7 @@ export default function Buildings() {
                 <input
                   type="number"
                   required
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="sc-input mt-1 block w-full"
                   value={formData.electricity_threshold}
                   onChange={(e) => setFormData({ ...formData, electricity_threshold: parseFloat(e.target.value) })}
                 />
@@ -249,7 +249,7 @@ export default function Buildings() {
               <div>
                 <label className="block text-sm font-medium text-gray-700">Zone</label>
                 <select
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  className="sc-input mt-1 block w-full"
                   value={formData.zone}
                   onChange={(e) => setFormData({ ...formData, zone: e.target.value })}
                 >
@@ -264,7 +264,7 @@ export default function Buildings() {
                 <input
                   id="form-iot-24x7"
                   type="checkbox"
-                  className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                  className="h-4 w-4 text-teal-600 border-gray-300 rounded"
                   checked={formData.is_24x7}
                   onChange={(e) => setFormData({ ...formData, is_24x7: e.target.checked })}
                 />
@@ -277,14 +277,14 @@ export default function Buildings() {
               <label className="block text-sm font-medium text-gray-700">Tags (optional)</label>
               <input
                 type="text"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="sc-input mt-1 block w-full"
                 value={formData.tags}
                 onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
               />
             </div>
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+              className="sc-btn sc-btn-primary px-4 py-2"
             >
               Create Building
             </button>
@@ -292,9 +292,9 @@ export default function Buildings() {
         </div>
       )}
 
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
+      <div className="sc-card p-0 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <table className="min-w-full divide-y divide-gray-200 text-sm sc-table">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Name</th>

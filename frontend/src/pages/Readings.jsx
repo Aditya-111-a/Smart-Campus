@@ -104,11 +104,11 @@ export default function Readings() {
   }
 
   return (
-    <div className="px-4 py-6">
+    <div className="sc-page px-4 py-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Readings</h1>
-          <p className="text-sm text-gray-600 mt-1">
+          <h1 className="text-3xl sc-title">Readings</h1>
+          <p className="text-sm sc-subtitle mt-1">
             Add new readings from{' '}
             <Link to="/admin/manual-entry" className="text-blue-600 hover:underline">Manual Entry</Link>.
           </p>
@@ -124,9 +124,9 @@ export default function Readings() {
         </div>
       )}
 
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
+      <div className="sc-card p-0 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 sc-table">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Building</th>
@@ -165,14 +165,14 @@ export default function Readings() {
                           <button
                             type="button"
                             onClick={() => handleEditReading(reading)}
-                            className="text-xs px-2 py-1 rounded border border-blue-300 text-blue-700 hover:bg-blue-50"
+                            className="sc-btn sc-btn-secondary text-xs px-2 py-1"
                           >
                             Edit
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDeleteReading(reading)}
-                            className="text-xs px-2 py-1 rounded border border-red-300 text-red-700 hover:bg-red-50"
+                            className="sc-btn sc-btn-danger text-xs px-2 py-1"
                           >
                             Delete
                           </button>
