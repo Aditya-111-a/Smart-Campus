@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react'
-import api from '../services/api'
+import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react'
+import api, { subscribeApiStatus } from '../services/api'
 
 const AuthContext = createContext(null)
 const DEFAULT_CAMPUS = 'VIT Vellore'
@@ -18,6 +18,9 @@ function decodeJwt(token) {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [lastApiStatus, setLastApiStatus] = useState(null)
+  const [systemHealth, setSystemHealth] = useState(null)
+  const [authError, setAuthError] = useState(null)
   const [token, setToken] = useState(() => {
     try {
       return localStorage.getItem('token')
@@ -39,13 +42,23 @@ export function AuthProvider({ children }) {
       }
       fetchUser()
     } else {
+      setUser(null)
+      setSystemHealth(null)
+      setAuthError(null)
       setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
-  const fetchUser = async () => {
+  useEffect(() => {
+    return subscribeApiStatus((status) => {
+      setLastApiStatus(status)
+    })
+  }, [])
+
+  const fetchUser = useCallback(async ({ strict = false } = {}) => {
     try {
+      setAuthError(null)
       if (import.meta?.env?.DEV) {
         console.debug('[Auth] Fetching /auth/me')
       }
@@ -57,24 +70,46 @@ export function AuthProvider({ children }) {
           role: response.data?.role,
         })
       }
+      try {
+        const healthRes = await api.get('/system/health')
+        setSystemHealth(healthRes.data)
+      } catch {
+        setSystemHealth(null)
+      }
     } catch (error) {
+      const status = error?.response?.status
+      const isAuthError = status === 401 || status === 403
       if (import.meta?.env?.DEV) {
-        console.warn('[Auth] /auth/me failed, clearing token', {
-          status: error?.response?.status,
+        console.warn('[Auth] /auth/me failed', {
+          status,
           detail: error?.response?.data?.detail,
+          isAuthError,
         })
       }
-      try {
-        localStorage.removeItem('token')
-      } catch {
-        // ignore
+      if (isAuthError) {
+        try {
+          localStorage.removeItem('token')
+        } catch {
+          // ignore
+        }
+        setToken(null)
+        setUser(null)
+        setSystemHealth(null)
+      } else {
+        setUser(null)
       }
-      setToken(null)
-      setUser(null)
+      setAuthError(
+        error?.response?.data?.detail
+          || error?.message
+          || 'Unable to verify session with backend.',
+      )
+      if (strict) {
+        throw error
+      }
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   const login = async (email, password) => {
     const params = new URLSearchParams()
@@ -106,7 +141,7 @@ export function AuthProvider({ children }) {
     }
     setToken(access_token)
 
-    await fetchUser()
+    await fetchUser({ strict: true })
     return response.data
   }
 
@@ -118,20 +153,48 @@ export function AuthProvider({ children }) {
     }
     setToken(null)
     setUser(null)
+    setSystemHealth(null)
+    setAuthError(null)
     if (import.meta?.env?.DEV) {
       console.debug('[Auth] Logged out, token cleared')
     }
   }
+
+  const tokenPayload = useMemo(() => decodeJwt(token), [token])
+  const tokenExpiryIso = tokenPayload?.exp ? new Date(tokenPayload.exp * 1000).toISOString() : null
+  const isTokenExpired = tokenPayload?.exp ? Date.now() >= tokenPayload.exp * 1000 : false
+
+  const authDebug = useMemo(
+    () => ({
+      tokenPresent: Boolean(token),
+      tokenPrefix: token ? token.slice(0, 12) : null,
+      tokenSub: tokenPayload?.sub || null,
+      tokenRole: tokenPayload?.role || null,
+      tokenExp: tokenPayload?.exp || null,
+      tokenExpiryIso,
+      isTokenExpired,
+      userEmail: user?.email || null,
+      userRole: user?.role || null,
+      loading,
+      authError,
+      lastApiStatus,
+      systemHealth,
+    }),
+    [token, tokenPayload, tokenExpiryIso, isTokenExpired, user, loading, authError, lastApiStatus, systemHealth],
+  )
 
   return (
     <AuthContext.Provider
       value={{
         user,
         loading,
+        authResolved: !loading,
         login,
         logout,
         defaultCampus: DEFAULT_CAMPUS,
         token,
+        authDebug,
+        refreshUser: fetchUser,
       }}
     >
       {children}

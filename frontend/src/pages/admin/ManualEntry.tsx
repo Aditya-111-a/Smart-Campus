@@ -9,84 +9,82 @@ interface Building {
   code: string
 }
 
+type BuildingsReason = 'empty_db' | 'auth' | 'api_error' | null
+
+const OTHER_OPTION = '__other__'
+
 export default function ManualEntry() {
-  const { defaultCampus } = useAuth()
+  const { defaultCampus, authResolved, user, loading } = useAuth()
   const [buildings, setBuildings] = useState<Building[]>([])
-  const [loading, setLoading] = useState(true)
+  const [pageLoading, setPageLoading] = useState(true)
   const [submitLoading, setSubmitLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [buildingsReason, setBuildingsReason] = useState<BuildingsReason>(null)
   const [formData, setFormData] = useState({
     building_id: '',
     utility_type: 'water' as 'water' | 'electricity',
     value: '',
     reading_date: new Date().toISOString().slice(0, 16),
     notes: '',
+    new_building_name: '',
+    new_building_code: '',
+    new_building_description: '',
   })
-  const [buildingsEmptyReason, setBuildingsEmptyReason] = useState<'empty_db' | 'auth_or_error' | null>(null)
-  const [seedLoading, setSeedLoading] = useState(false)
 
-  /** Extract error message from API response (string or 422 validation list). */
+  const isOther = formData.building_id === OTHER_OPTION
+
   const getApiError = useCallback((err: unknown): string => {
     const ax = err as { response?: { status?: number; data?: { detail?: string | Array<{ loc?: string[]; msg?: string }> } } }
-    if (ax?.response?.status === 401) {
-      return 'Session expired or not logged in. Please log in again.'
-    }
-    if (ax?.response?.status === 403) {
-      return 'You do not have permission to perform this action.'
-    }
+    if (ax?.response?.status === 401) return 'Authentication failed for manual reading entry.'
+    if (ax?.response?.status === 403) return 'You do not have permission to perform this action.'
     const d = ax?.response?.data?.detail
     if (typeof d === 'string') return d
-    if (Array.isArray(d) && d.length) {
-      return d.map((e) => e.msg || e.loc?.join('.') || '').filter(Boolean).join('; ') || 'Validation error'
-    }
+    if (Array.isArray(d) && d.length) return d.map((e) => e.msg || e.loc?.join('.') || '').filter(Boolean).join('; ')
     return ''
   }, [])
 
   const fetchBuildings = useCallback(async () => {
-    setLoading(true)
+    setPageLoading(true)
     setMessage(null)
     setFieldErrors({})
-    setBuildingsEmptyReason(null)
+    setBuildingsReason(null)
     try {
       const res = await api.get('/buildings', { params: { limit: 500, campus_name: defaultCampus || 'VIT Vellore' } })
-      const raw = res.data
-      console.log('[Buildings] raw response', res.status, raw)
-      const list: unknown[] = Array.isArray(raw) ? raw : (Array.isArray((raw as { data?: unknown[] })?.data) ? (raw as { data: unknown[] }).data : (raw as { buildings?: unknown[] })?.buildings ?? [])
-      const safe: Building[] = (list || []).map((b: unknown) => {
-        const x = b as { id?: number; name?: string; code?: string }
-        return { id: Number(x.id), name: String(x.name ?? ''), code: String(x.code ?? '') }
-      }).filter((b): b is Building => Boolean(b.id && b.name))
-      setBuildings(safe)
-      if (safe.length === 0) {
-        setBuildingsEmptyReason('empty_db')
-        setMessage({ type: 'error', text: 'No buildings in the database. Use "Create default VIT buildings" below or add one via "Others (add new building)".' })
-      }
+      const list: Building[] = (Array.isArray(res.data) ? res.data : [])
+        .map((b: unknown) => {
+          const x = b as { id?: number; name?: string; code?: string }
+          return { id: Number(x.id), name: String(x.name ?? ''), code: String(x.code ?? '') }
+        })
+        .filter((b) => Boolean(b.id && b.name))
+
+      setBuildings(list)
+      if (list.length === 0) setBuildingsReason('empty_db')
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status
-      console.warn('[Buildings] request failed', status, (err as { response?: { data?: unknown } })?.response?.data)
-      setBuildingsEmptyReason('auth_or_error')
-      const msg = getApiError(err)
-      setMessage({ type: 'error', text: msg || 'Failed to load buildings. Check that the backend is running.' })
       setBuildings([])
+      if (status === 401) setBuildingsReason('auth')
+      else setBuildingsReason('api_error')
+      setMessage({ type: 'error', text: getApiError(err) || 'Failed to load buildings for manual entry.' })
     } finally {
-      setLoading(false)
+      setPageLoading(false)
     }
-  }, [getApiError])
+  }, [defaultCampus, getApiError])
 
   useEffect(() => {
+    if (!authResolved || !user) return
     fetchBuildings()
-  }, [fetchBuildings])
+  }, [authResolved, user, fetchBuildings])
 
-  const isAddingNew = false
   const sortedBuildings = [...buildings].sort((a, b) => a.name.localeCompare(b.name))
 
   const validate = (): boolean => {
     const errors: Record<string, string> = {}
     if (!formData.building_id) errors.building_id = 'Select a building.'
-    if (formData.value === '' || formData.value === null || formData.value === undefined) {
-      errors.value = 'Enter a value.'
-    } else {
+    if (isOther && user?.role !== 'admin') errors.building_id = 'Only admin can create a new building from this page.'
+    if (isOther && !formData.new_building_name.trim()) errors.new_building_name = 'Enter building name.'
+    if (formData.value === '' || formData.value === null || formData.value === undefined) errors.value = 'Enter a value.'
+    else {
       const v = parseFloat(String(formData.value))
       if (isNaN(v) || v < 0) errors.value = 'Enter a valid positive number.'
     }
@@ -100,11 +98,24 @@ export default function ManualEntry() {
     setFieldErrors({})
     if (!validate()) return
 
-    const buildingId = parseInt(String(formData.building_id), 10)
-
-    const value = parseFloat(String(formData.value))
     setSubmitLoading(true)
     try {
+      let buildingId = parseInt(String(formData.building_id), 10)
+
+      if (isOther) {
+        const created = await api.post('/buildings', {
+          name: formData.new_building_name.trim(),
+          code: formData.new_building_code.trim() || undefined,
+          description: formData.new_building_description.trim() || undefined,
+          campus_name: defaultCampus || 'VIT Vellore',
+          zone: 'academic',
+          water_threshold: 10000,
+          electricity_threshold: 5000,
+        })
+        buildingId = created.data.id
+      }
+
+      const value = parseFloat(String(formData.value))
       await api.post('/readings', {
         building_id: buildingId,
         utility_type: formData.utility_type,
@@ -112,24 +123,34 @@ export default function ManualEntry() {
         reading_date: new Date(formData.reading_date).toISOString(),
         notes: formData.notes || undefined,
       })
+
       setMessage({ type: 'success', text: 'Reading added successfully.' })
-      setFormData({
-        ...formData,
+      setFormData((prev) => ({
+        ...prev,
         value: '',
         notes: '',
-      })
-      setFieldErrors({})
+        new_building_name: '',
+        new_building_code: '',
+        new_building_description: '',
+      }))
+      await fetchBuildings()
     } catch (err: unknown) {
-      const msg = getApiError(err)
-      setMessage({ type: 'error', text: msg || 'Failed to add reading.' })
+      setMessage({ type: 'error', text: getApiError(err) || 'Failed to add reading.' })
     } finally {
       setSubmitLoading(false)
     }
   }
 
-  // Manual entry now strictly references existing buildings; creation is owned by Buildings page.
+  if (loading || !authResolved) {
+    return (
+      <div className="px-4 py-6">
+        <h1 className="text-3xl font-bold text-gray-900 mb-6">Manual Entry</h1>
+        <p className="text-gray-500">Resolving session...</p>
+      </div>
+    )
+  }
 
-  if (loading) {
+  if (pageLoading) {
     return (
       <div className="px-4 py-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">Manual Entry</h1>
@@ -141,21 +162,19 @@ export default function ManualEntry() {
   return (
     <div className="px-4 py-6">
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Manual Entry</h1>
-      <p className="text-gray-600 mb-4">Add a single utility reading. Select a building from the list or add a new one using Others.</p>
+      <p className="text-sm text-gray-600 mb-4">
+        Select existing building (scroll list), or choose <strong>Others</strong> to create a new building and add reading in one flow.
+      </p>
+      <p className="text-sm text-gray-600 mb-4">
+        Building metadata can also be managed in <Link to="/buildings" className="text-blue-600 hover:underline">Buildings</Link>.
+      </p>
 
-      {message && (message.text || '').toLowerCase().includes('log in') && (
-        <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-          <p className="text-amber-800 text-sm">{message.text}</p>
-          <Link to="/login" className="text-blue-600 hover:underline text-sm font-medium mt-2 inline-block">Go to login</Link>
-        </div>
-      )}
-
-      <div className="bg-white rounded-lg shadow p-6 max-w-lg">
+      <div className="bg-white rounded-lg shadow p-6 max-w-2xl">
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Building</label>
             <select
-              required={!isAddingNew}
+              required
               size={14}
               aria-invalid={!!fieldErrors.building_id}
               className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${fieldErrors.building_id ? 'border-red-500' : ''}`}
@@ -171,47 +190,50 @@ export default function ManualEntry() {
                   {b.name} ({b.code})
                 </option>
               ))}
+              <option value={OTHER_OPTION}>Others (Add new building)</option>
             </select>
             {fieldErrors.building_id && <p className="text-red-600 text-sm mt-1">{fieldErrors.building_id}</p>}
             <p className="text-xs text-gray-500 mt-1">
-              {sortedBuildings.length > 0
-                ? `${sortedBuildings.length} buildings. Scroll to see all, click to select.`
-                : buildingsEmptyReason === 'empty_db'
-                  ? 'Database has no buildings. Create default VIT buildings or add one via Others.'
-                  : 'No buildings loaded. Check login or retry.'}
+              {sortedBuildings.length > 0 && `${sortedBuildings.length} seeded buildings loaded.`}
+              {sortedBuildings.length === 0 && buildingsReason === 'empty_db' && 'No buildings in DB.'}
+              {sortedBuildings.length === 0 && buildingsReason === 'auth' && 'No buildings loaded due to authentication failure.'}
+              {sortedBuildings.length === 0 && buildingsReason === 'api_error' && 'No buildings loaded due to API/backend error.'}
             </p>
-            {sortedBuildings.length === 0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {buildingsEmptyReason === 'empty_db' && (
-                  <button
-                    type="button"
-                    disabled={seedLoading}
-                    onClick={async () => {
-                      setSeedLoading(true)
-                      setMessage(null)
-                      try {
-                        const r = await api.post('/admin/seed-buildings')
-                        const created = (r.data as { created?: number })?.created ?? 0
-                        setMessage({ type: 'success', text: `Created ${created} default building(s).` })
-                        await fetchBuildings()
-                      } catch (err: unknown) {
-                        setMessage({ type: 'error', text: getApiError(err) || 'Failed to seed buildings.' })
-                      } finally {
-                        setSeedLoading(false)
-                      }
-                    }}
-                    className="text-sm px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {seedLoading ? 'Creating…' : 'Create default VIT buildings'}
-                  </button>
-                )}
-                <button type="button" onClick={() => fetchBuildings()} className="text-sm text-blue-600 hover:underline">
-                  Retry loading buildings
-                </button>
-              </div>
-            )}
           </div>
 
+          {isOther && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
+              <div className="md:col-span-2 text-sm font-medium text-gray-700">New Building Details</div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                <input
+                  type="text"
+                  className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${fieldErrors.new_building_name ? 'border-red-500' : ''}`}
+                  value={formData.new_building_name}
+                  onChange={(e) => setFormData({ ...formData, new_building_name: e.target.value })}
+                />
+                {fieldErrors.new_building_name && <p className="text-red-600 text-sm mt-1">{fieldErrors.new_building_name}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Code (optional)</label>
+                <input
+                  type="text"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  value={formData.new_building_code}
+                  onChange={(e) => setFormData({ ...formData, new_building_code: e.target.value })}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
+                <input
+                  type="text"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  value={formData.new_building_description}
+                  onChange={(e) => setFormData({ ...formData, new_building_description: e.target.value })}
+                />
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Utility</label>
@@ -259,15 +281,13 @@ export default function ManualEntry() {
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             />
           </div>
-          {message && message.text && !message.text.toLowerCase().includes('log in') && (
-            <p className={message.type === 'success' ? 'text-green-600 text-sm' : 'text-red-600 text-sm'}>{message.text}</p>
-          )}
+          {message && <p className={message.type === 'success' ? 'text-green-600 text-sm' : 'text-red-600 text-sm'}>{message.text}</p>}
           <button
             type="submit"
-            disabled={submitLoading}
+            disabled={submitLoading || (sortedBuildings.length === 0 && !isOther)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md disabled:opacity-50"
           >
-            {submitLoading ? 'Saving...' : isAddingNew ? 'Add building & reading' : 'Add Reading'}
+            {submitLoading ? 'Saving...' : 'Add Reading'}
           </button>
         </form>
       </div>

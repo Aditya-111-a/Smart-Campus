@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../../services/api'
+import { useAuth } from '../../contexts/AuthContext'
 
 interface ImportErrorRow {
   row_number: number
@@ -15,6 +16,7 @@ interface ImportSummary {
 }
 
 export default function ImportData() {
+  const { loading: authLoading, authResolved } = useAuth()
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<ImportSummary | null>(null)
@@ -60,7 +62,7 @@ export default function ImportData() {
 
   function getApiError(err: unknown): string {
     const ax = err as { response?: { status?: number; data?: { detail?: string | Array<{ msg?: string; loc?: string[] }> } } }
-    if (ax?.response?.status === 401) return 'Please log in as admin to import. Your session may have expired.'
+    if (ax?.response?.status === 401) return 'Authentication failed for admin import. Please re-authenticate.'
     if (ax?.response?.status === 403) return 'You need admin rights to import. Log in with an admin account.'
     const d = ax?.response?.data?.detail
     if (typeof d === 'string') return d
@@ -70,6 +72,11 @@ export default function ImportData() {
 
   return (
     <div className="px-4 py-6">
+      {(authLoading || !authResolved) && (
+        <div className="mb-4 p-3 rounded border border-gray-200 bg-gray-50 text-sm text-gray-700">
+          Resolving session before import actions...
+        </div>
+      )}
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Import Data</h1>
 
       <div className="bg-white rounded-lg shadow p-6 mb-6">

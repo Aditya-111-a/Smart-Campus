@@ -1,151 +1,126 @@
-import { useEffect, useState } from 'react'
-import api from '../services/api'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
+import api from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function Readings() {
+  const { user, authResolved, loading, defaultCampus } = useAuth()
   const [readings, setReadings] = useState([])
   const [buildings, setBuildings] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [formData, setFormData] = useState({
-    building_id: '',
-    utility_type: 'water',
-    value: '',
-    reading_date: new Date().toISOString().slice(0, 16),
-    notes: '',
-  })
+  const [pageLoading, setPageLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [buildingsReason, setBuildingsReason] = useState(null)
 
   useEffect(() => {
-    fetchBuildings()
-    fetchReadings()
-  }, [])
+    if (!authResolved || !user) return
+    fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authResolved, user])
 
-  const fetchBuildings = async () => {
+  const fetchData = async () => {
+    setPageLoading(true)
+    setError(null)
+    setBuildingsReason(null)
     try {
-      const response = await api.get('/buildings')
-      setBuildings(response.data)
-    } catch (error) {
-      console.error('Error fetching buildings:', error)
-    }
-  }
+      const [buildingsRes, readingsRes] = await Promise.all([
+        api.get('/buildings', { params: { campus_name: defaultCampus || 'VIT Vellore', limit: 500 } }),
+        api.get('/readings', { params: { limit: 100 } }),
+      ])
+      const buildingList = buildingsRes.data || []
+      setBuildings(buildingList)
+      setReadings(readingsRes.data || [])
 
-  const fetchReadings = async () => {
-    try {
-      const response = await api.get('/readings?limit=100')
-      setReadings(response.data)
-    } catch (error) {
-      console.error('Error fetching readings:', error)
+      if (buildingList.length === 0) {
+        setBuildingsReason('empty_db')
+      }
+    } catch (err) {
+      const status = err?.response?.status
+      if (status === 401) {
+        setBuildingsReason('auth')
+        setError('Authentication failed for readings API. Please login again.')
+      } else {
+        setBuildingsReason('api_error')
+        setError(err?.response?.data?.detail || 'Failed to load readings/buildings.')
+      }
     } finally {
-      setLoading(false)
+      setPageLoading(false)
     }
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+  const buildingLookup = useMemo(() => {
+    const map = new Map()
+    buildings.forEach((b) => map.set(b.id, b))
+    return map
+  }, [buildings])
+
+  const handleEditReading = async (reading) => {
+    const nextValueRaw = window.prompt('Reading value', String(reading.value ?? ''))
+    if (nextValueRaw === null) return
+    const nextValue = Number(nextValueRaw)
+    if (!Number.isFinite(nextValue) || nextValue < 0) {
+      // eslint-disable-next-line no-alert
+      alert('Invalid value')
+      return
+    }
+    const nextDateInput = window.prompt(
+      'Reading date/time (YYYY-MM-DDTHH:mm)',
+      format(new Date(reading.reading_date), "yyyy-MM-dd'T'HH:mm"),
+    )
+    if (!nextDateInput) return
+
     try {
-      await api.post('/readings', {
-        ...formData,
-        value: parseFloat(formData.value),
-        reading_date: new Date(formData.reading_date).toISOString(),
+      await api.put(`/readings/${reading.id}`, {
+        building_id: reading.building_id,
+        utility_type: reading.utility_type,
+        value: nextValue,
+        reading_date: new Date(nextDateInput).toISOString(),
+        notes: reading.notes || undefined,
       })
-      setShowForm(false)
-      setFormData({
-        building_id: '',
-        utility_type: 'water',
-        value: '',
-        reading_date: new Date().toISOString().slice(0, 16),
-        notes: '',
-      })
-      fetchReadings()
-    } catch (error) {
-      alert(error.response?.data?.detail || 'Error creating reading')
+      await fetchData()
+    } catch (err) {
+      // eslint-disable-next-line no-alert
+      alert(err?.response?.data?.detail || 'Failed to update reading')
     }
   }
 
-  if (loading) {
+  const handleDeleteReading = async (reading) => {
+    if (!window.confirm(`Delete reading ${reading.id}?`)) return
+    try {
+      await api.delete(`/readings/${reading.id}`)
+      await fetchData()
+    } catch (err) {
+      // eslint-disable-next-line no-alert
+      alert(err?.response?.data?.detail || 'Failed to delete reading')
+    }
+  }
+
+  if (loading || !authResolved) {
+    return <div className="text-center py-12">Resolving session...</div>
+  }
+
+  if (pageLoading) {
     return <div className="text-center py-12">Loading readings...</div>
   }
 
   return (
     <div className="px-4 py-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Utility Readings</h1>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-        >
-          {showForm ? 'Cancel' : 'Add Reading'}
-        </button>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Readings</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Add new readings from{' '}
+            <Link to="/admin/manual-entry" className="text-blue-600 hover:underline">Manual Entry</Link>.
+          </p>
+        </div>
       </div>
 
-      {showForm && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-bold mb-4">Add New Reading</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Building</label>
-              <select
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                value={formData.building_id}
-                onChange={(e) => setFormData({ ...formData, building_id: parseInt(e.target.value) })}
-              >
-                <option value="">Select a building</option>
-                {buildings.map((building) => (
-                  <option key={building.id} value={building.id}>
-                    {building.name} ({building.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Utility Type</label>
-              <select
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                value={formData.utility_type}
-                onChange={(e) => setFormData({ ...formData, utility_type: e.target.value })}
-              >
-                <option value="water">Water</option>
-                <option value="electricity">Electricity</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Value</label>
-              <input
-                type="number"
-                step="0.01"
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                value={formData.value}
-                onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Reading Date</label>
-              <input
-                type="datetime-local"
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                value={formData.reading_date}
-                onChange={(e) => setFormData({ ...formData, reading_date: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Notes</label>
-              <textarea
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              />
-            </div>
-            <button
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-            >
-              Submit Reading
-            </button>
-          </form>
+      {error && <div className="mb-4 p-3 rounded border border-red-200 bg-red-50 text-red-700 text-sm">{error}</div>}
+      {buildings.length === 0 && (
+        <div className="mb-4 p-3 rounded border border-amber-200 bg-amber-50 text-amber-800 text-sm">
+          {buildingsReason === 'empty_db' && 'No buildings exist in the campus database.'}
+          {buildingsReason === 'auth' && 'No buildings loaded due to authentication issue.'}
+          {buildingsReason === 'api_error' && 'No buildings loaded due to API error.'}
         </div>
       )}
 
@@ -154,50 +129,66 @@ export default function Readings() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Building
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Value
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Notes
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Building</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                {user?.role === 'admin' && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {readings.map((reading) => {
-                const building = buildings.find(b => b.id === reading.building_id)
+                const building = buildingLookup.get(reading.building_id)
                 return (
-                <tr key={reading.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {building?.name || `Building ${reading.building_id}`}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      reading.utility_type === 'water' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-                    }`}>
-                      {reading.utility_type}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {reading.value.toFixed(2)} {reading.unit}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {format(new Date(reading.reading_date), 'MMM dd, yyyy HH:mm')}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {reading.notes || '-'}
-                  </td>
-                </tr>
+                  <tr key={reading.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {building?.name || `Building ${reading.building_id}`}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${reading.utility_type === 'water' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                        {reading.utility_type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {Number(reading.value).toFixed(2)} {reading.unit}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {format(new Date(reading.reading_date), 'MMM dd, yyyy HH:mm')}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{reading.notes || '-'}</td>
+                    {user?.role === 'admin' && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditReading(reading)}
+                            className="text-xs px-2 py-1 rounded border border-blue-300 text-blue-700 hover:bg-blue-50"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteReading(reading)}
+                            className="text-xs px-2 py-1 rounded border border-red-300 text-red-700 hover:bg-red-50"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
                 )
               })}
+              {readings.length === 0 && (
+                <tr>
+                  <td colSpan={user?.role === 'admin' ? 6 : 5} className="px-6 py-4 text-center text-sm text-gray-500">
+                    No readings available yet. Use Manual Entry to add one.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

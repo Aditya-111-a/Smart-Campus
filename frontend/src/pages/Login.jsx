@@ -19,7 +19,11 @@ export default function Login() {
       await login(email, password)
       navigate('/')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Login failed')
+      if (err?.response?.status === 0 || err?.message?.includes('Network Error')) {
+        setError('Cannot reach backend API. Ensure backend is running at http://localhost:8000.')
+      } else {
+        setError(err?.response?.data?.detail || err?.message || 'Login failed')
+      }
     } finally {
       setLoading(false)
     }

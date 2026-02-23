@@ -10,6 +10,7 @@ import Layout from './components/Layout'
 import AdminRoute from './components/AdminRoute'
 import ManualEntry from './pages/admin/ManualEntry'
 import ImportData from './pages/admin/ImportData'
+import IoTDevices from './pages/admin/IoTDevices'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -45,6 +46,14 @@ function AppRoutes() {
           element={
             <AdminRoute>
               <ImportData />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="admin/iot-devices"
+          element={
+            <AdminRoute>
+              <IoTDevices />
             </AdminRoute>
           }
         />

@@ -7,6 +7,32 @@ const api = axios.create({
   },
 })
 
+let lastApiStatus = null
+const apiStatusListeners = new Set()
+
+function emitApiStatus(status) {
+  lastApiStatus = status
+  apiStatusListeners.forEach((listener) => {
+    try {
+      listener(status)
+    } catch {
+      // ignore listener failures
+    }
+  })
+}
+
+export function subscribeApiStatus(listener) {
+  apiStatusListeners.add(listener)
+  if (lastApiStatus) {
+    listener(lastApiStatus)
+  }
+  return () => apiStatusListeners.delete(listener)
+}
+
+export function getLastApiStatus() {
+  return lastApiStatus
+}
+
 // Single source of truth for JWT: localStorage
 function getStoredToken() {
   try {
@@ -22,12 +48,6 @@ api.interceptors.request.use(
     const token = getStoredToken()
     const url = config.url || ''
 
-    const isAuthEndpoint =
-      url.startsWith('/auth/login') ||
-      url.startsWith('/auth/register') ||
-      url.startsWith('/auth/me')
-    const isHealthEndpoint = url.startsWith('/system/health')
-
     if (token) {
       config.headers = config.headers || {}
       config.headers.Authorization = `Bearer ${token}`
@@ -40,16 +60,15 @@ api.interceptors.request.use(
           tokenPrefix: token.slice(0, 12),
         })
       }
-    } else if (!isAuthEndpoint && !isHealthEndpoint) {
-      // Block unauthenticated calls to protected API routes
-      if (import.meta?.env?.DEV) {
-        console.debug('[API][req] blocked unauthenticated request', {
-          method: config.method,
-          url,
-        })
-      }
-      return Promise.reject(new axios.Cancel('Unauthenticated – request blocked client-side'))
     }
+
+    emitApiStatus({
+      phase: 'request',
+      at: new Date().toISOString(),
+      method: (config.method || 'get').toUpperCase(),
+      url,
+      hasToken: Boolean(token),
+    })
 
     return config
   },
@@ -59,14 +78,22 @@ api.interceptors.request.use(
 // Basic response logging for debugging auth / role issues
 api.interceptors.response.use(
   (response) => {
+    const url = response.config?.url || ''
     if (import.meta?.env?.DEV) {
-      const url = response.config?.url || ''
       console.debug('[API][res]', {
         method: response.config?.method,
         url,
         status: response.status,
       })
     }
+    emitApiStatus({
+      phase: 'response',
+      at: new Date().toISOString(),
+      method: (response.config?.method || 'get').toUpperCase(),
+      url,
+      status: response.status,
+      ok: true,
+    })
     return response
   },
   (error) => {
@@ -80,6 +107,15 @@ api.interceptors.response.use(
         detail: response.data?.detail,
       })
     }
+    emitApiStatus({
+      phase: 'response',
+      at: new Date().toISOString(),
+      method: (response?.config?.method || error.config?.method || 'get').toUpperCase(),
+      url: response?.config?.url || error.config?.url || '',
+      status: response?.status || null,
+      ok: false,
+      error: response?.data?.detail || error?.message || 'Request failed',
+    })
     return Promise.reject(error)
   },
 )

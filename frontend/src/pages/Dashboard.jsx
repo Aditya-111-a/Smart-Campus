@@ -13,20 +13,22 @@ const ZONE_COLORS = {
 }
 
 export default function Dashboard() {
-  const { user } = useAuth()
+  const { user, loading: authLoading, authResolved } = useAuth()
   const [totals, setTotals] = useState(null)
   const [rankings, setRankings] = useState({ water: [], electricity: [] })
   const [summary, setSummary] = useState([])
   const [zoneBreakdown, setZoneBreakdown] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [filters, setFilters] = useState({
     utility: 'water',
     days: 30,
   })
 
   useEffect(() => {
+    if (!authResolved || !user) return
     fetchDashboardData()
-  }, [filters.utility, filters.days])
+  }, [filters.utility, filters.days, authResolved, user])
 
   const fetchDashboardData = async () => {
     setLoading(true)
@@ -37,6 +39,7 @@ export default function Dashboard() {
     const endIso = end.toISOString()
 
     try {
+      setError(null)
       const [totalsRes, waterRankings, elecRankings, summaryRes, statsRes] = await Promise.all([
         api.get('/analytics/totals', { params: { start_date: startIso, end_date: endIso } }),
         api.get('/analytics/rankings', { params: { utility_type: 'water', limit: 5, start_date: startIso, end_date: endIso } }),
@@ -57,9 +60,14 @@ export default function Dashboard() {
       setZoneBreakdown(statsRes.data.per_zone || [])
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
+      setError(error?.response?.data?.detail || 'Dashboard API failed.')
     } finally {
       setLoading(false)
     }
+  }
+
+  if (authLoading || !authResolved) {
+    return <div className="text-center py-12">Resolving session...</div>
   }
 
   if (loading) {
@@ -96,6 +104,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">{error}</div>
+      )}
 
       {/* Total Consumption Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

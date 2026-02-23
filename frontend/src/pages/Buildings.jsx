@@ -1,11 +1,29 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import api from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 
+function formatTrend(value) {
+  if (!Number.isFinite(value)) return '0.0%'
+  const sign = value > 0 ? '+' : ''
+  return `${sign}${value.toFixed(1)}%`
+}
+
+function toFiniteNumber(value, fallback = 0) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : fallback
+}
+
+function formatMetric(value, unit = '') {
+  const n = toFiniteNumber(value, 0)
+  return `${n.toFixed(2)}${unit ? ` ${unit}` : ''}`
+}
+
 export default function Buildings() {
-  const { defaultCampus, user } = useAuth()
+  const { defaultCampus, user, authResolved, loading } = useAuth()
+  const [overview, setOverview] = useState(null)
   const [buildings, setBuildings] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [pageLoading, setPageLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
@@ -17,49 +35,37 @@ export default function Buildings() {
     is_24x7: false,
     tags: '',
   })
-  const [buildingStats, setBuildingStats] = useState({})
 
   useEffect(() => {
-    fetchBuildings()
-  }, [])
+    if (!authResolved || !user) return
+    fetchOverview()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authResolved, user, defaultCampus])
 
-  const fetchBuildings = async () => {
+  const fetchOverview = async () => {
+    setPageLoading(true)
+    setError(null)
     try {
-      const response = await api.get('/buildings', {
-        params: { campus_name: defaultCampus || 'VIT Vellore', limit: 500 },
+      const response = await api.get('/buildings/overview', {
+        params: {
+          campus_name: defaultCampus || 'VIT Vellore',
+          days: 30,
+        },
       })
-      const list = response.data || []
-      setBuildings(list)
-
-      // Fetch aggregated consumption per building for the last 30 days
-      const end = new Date()
-      const start = new Date()
-      start.setDate(end.getDate() - 30)
-      try {
-        const reportRes = await api.get('/reports/custom', {
-          params: {
-            start_date: start.toISOString(),
-            end_date: end.toISOString(),
-          },
-        })
-        const summaries = reportRes.data?.building_summaries || []
-        const map = {}
-        summaries.forEach((s) => {
-          map[s.building_id] = {
-            water: Number(s.water || 0),
-            electricity: Number(s.electricity || 0),
-          }
-        })
-        setBuildingStats(map)
-      } catch (err) {
-        // Safe to continue without stats; list still renders
-        // eslint-disable-next-line no-console
-        console.warn('Failed to fetch building consumption summaries', err)
+      const nextOverview = response.data
+      setOverview(nextOverview)
+      setBuildings(nextOverview?.buildings || [])
+    } catch (err) {
+      const status = err?.response?.status
+      if (status === 401) {
+        setError('Authentication required. Your session is not valid for buildings API access.')
+      } else {
+        setError(err?.response?.data?.detail || 'Failed to load building overview.')
       }
-    } catch (error) {
-      console.error('Error fetching buildings:', error)
+      setOverview(null)
+      setBuildings([])
     } finally {
-      setLoading(false)
+      setPageLoading(false)
     }
   }
 
@@ -84,20 +90,71 @@ export default function Buildings() {
         is_24x7: false,
         tags: '',
       })
-      fetchBuildings()
-    } catch (error) {
-      alert(error.response?.data?.detail || 'Error creating building')
+      fetchOverview()
+    } catch (err) {
+      // eslint-disable-next-line no-alert
+      alert(err?.response?.data?.detail || 'Error creating building')
     }
   }
 
-  if (loading) {
-    return <div className="text-center py-12">Loading buildings...</div>
+  const handleEdit = async (building) => {
+    const nextName = window.prompt('Building name', building.name)
+    if (!nextName) return
+    const nextCode = window.prompt('Building code', building.code || '') || ''
+    const nextDescription = window.prompt('Description', building.description || '') || ''
+
+    try {
+      await api.put(`/buildings/${building.id}`, {
+        name: nextName.trim(),
+        code: nextCode.trim() || building.code,
+        description: nextDescription.trim() || undefined,
+        campus_name: building.campus_name || defaultCampus || 'VIT Vellore',
+        zone: building.zone || 'academic',
+        tags: building.tags || undefined,
+        is_24x7: Boolean(building.is_24x7),
+      })
+      await fetchOverview()
+    } catch (err) {
+      // eslint-disable-next-line no-alert
+      alert(err?.response?.data?.detail || 'Failed to update building')
+    }
+  }
+
+  const handleDelete = async (building) => {
+    if (!window.confirm(`Delete building ${building.name}?`)) return
+    try {
+      await api.delete(`/buildings/${building.id}`)
+      await fetchOverview()
+    } catch (err) {
+      // eslint-disable-next-line no-alert
+      alert(err?.response?.data?.detail || 'Failed to delete building')
+    }
+  }
+
+  const totals = useMemo(() => {
+    return buildings.reduce(
+      (acc, b) => {
+        acc.water += toFiniteNumber(b.water_total)
+        acc.electricity += toFiniteNumber(b.electricity_total)
+        acc.total += toFiniteNumber(b.total_consumption)
+        return acc
+      },
+      { water: 0, electricity: 0, total: 0 },
+    )
+  }, [buildings])
+
+  if (loading || !authResolved) {
+    return <div className="text-center py-12">Resolving session...</div>
+  }
+
+  if (pageLoading) {
+    return <div className="text-center py-12">Loading all buildings overview...</div>
   }
 
   return (
     <div className="px-4 py-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Buildings</h1>
+        <h1 className="text-3xl font-bold text-gray-900">All Buildings Overview</h1>
         {user?.role === 'admin' && (
           <button
             onClick={() => setShowForm(!showForm)}
@@ -106,6 +163,33 @@ export default function Buildings() {
             {showForm ? 'Cancel' : 'Add Building'}
           </button>
         )}
+      </div>
+
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          {error}
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg shadow p-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <p className="text-gray-500">Campus</p>
+            <p className="font-semibold">{overview?.campus_name || defaultCampus || 'VIT Vellore'}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Total Water (30d)</p>
+            <p className="font-semibold text-blue-600">{formatMetric(totals.water, 'L')}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Total Electricity (30d)</p>
+            <p className="font-semibold text-green-600">{formatMetric(totals.electricity, 'kWh')}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Sample Size</p>
+            <p className="font-semibold">{overview?.sample_size || 0}</p>
+          </div>
+        </div>
       </div>
 
       {showForm && user?.role === 'admin' && (
@@ -126,7 +210,6 @@ export default function Buildings() {
               <label className="block text-sm font-medium text-gray-700">Code</label>
               <input
                 type="text"
-                required
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value })}
@@ -219,84 +302,80 @@ export default function Buildings() {
                 <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Zone</th>
                 <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Water (30d)</th>
                 <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Electricity (30d)</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Total (30d)</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Trend</th>
                 <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Thresholds</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Flags</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">IoT</th>
+                {user?.role === 'admin' && (
+                  <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {buildings.map((building) => {
-                const stats = buildingStats[building.id] || { water: 0, electricity: 0 }
-                return (
-                  <tr key={building.id}>
-                    <td className="px-4 py-2 whitespace-nowrap font-medium text-gray-900">
-                      {building.name}
-                      {building.description && (
-                        <div className="text-xs text-gray-500 mt-0.5">{building.description}</div>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-gray-700">{building.code}</td>
+              {buildings.map((building) => (
+                <tr key={building.id}>
+                  <td className="px-4 py-2 whitespace-nowrap font-medium text-gray-900">
+                    {building.name}
+                    {building.description && (
+                      <div className="text-xs text-gray-500 mt-0.5">{building.description}</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-gray-700">{building.code}</td>
+                  <td className="px-4 py-2 whitespace-nowrap text-gray-700">
+                    {building.zone || '—'}
+                    <div className="text-xs text-gray-400">{building.campus_name || defaultCampus || 'VIT Vellore'}</div>
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-blue-600">{formatMetric(building.water_total, 'L')}</td>
+                  <td className="px-4 py-2 whitespace-nowrap text-green-600">{formatMetric(building.electricity_total, 'kWh')}</td>
+                  <td className="px-4 py-2 whitespace-nowrap text-gray-700">{formatMetric(building.total_consumption)}</td>
+                  <td className="px-4 py-2 whitespace-nowrap text-gray-700">
+                    <div className="text-blue-600">Water: {formatTrend(toFiniteNumber(building.water_trend_pct, 0))}</div>
+                    <div className="text-green-600">Elec: {formatTrend(toFiniteNumber(building.electricity_trend_pct, 0))}</div>
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap text-gray-700">
+                    <div>Water: {formatMetric(building.water_threshold, 'L')}</div>
+                    <div>Elec: {formatMetric(building.electricity_threshold, 'kWh')}</div>
+                  </td>
+                  {user?.role === 'admin' && (
                     <td className="px-4 py-2 whitespace-nowrap text-gray-700">
-                      {building.zone || '—'}
-                      <div className="text-xs text-gray-400">{building.campus_name || defaultCampus || 'VIT Vellore'}</div>
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-blue-600">
-                      {stats.water.toFixed(2)} L
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-green-600">
-                      {stats.electricity.toFixed(2)} kWh
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-gray-700">
-                      <div>Water: {building.water_threshold} L</div>
-                      <div>Elec: {building.electricity_threshold} kWh</div>
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-gray-700">
-                      <div className="flex flex-col gap-1">
-                        {building.is_24x7 && <span className="text-purple-600 text-xs">24x7</span>}
-                        {building.tags && <span className="text-xs text-gray-500">Tags: {building.tags}</span>}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2 whitespace-nowrap text-gray-700">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                            building.iot_enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'
-                          }`}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await api.put(`/buildings/${building.id}`, { iot_enabled: !building.iot_enabled })
+                              await fetchOverview()
+                            } catch (err) {
+                              // eslint-disable-next-line no-alert
+                              alert(err?.response?.data?.detail || 'Failed to toggle IoT')
+                            }
+                          }}
+                          className="text-xs px-2 py-1 rounded border border-purple-300 text-purple-700 hover:bg-purple-50"
                         >
-                          {building.iot_enabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                        {user?.role === 'admin' && (
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              try {
-                                await api.put(`/buildings/${building.id}`, {
-                                  iot_enabled: !building.iot_enabled,
-                                })
-                                fetchBuildings()
-                              } catch (error) {
-                                // eslint-disable-next-line no-alert
-                                alert(error.response?.data?.detail || 'Failed to toggle IoT setting')
-                              }
-                            }}
-                            className="text-xs px-2 py-0.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
-                          >
-                            {building.iot_enabled ? 'Disable' : 'Enable'}
-                          </button>
-                        )}
+                          IoT {building.iot_enabled ? 'On' : 'Off'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(building)}
+                          className="text-xs px-2 py-1 rounded border border-blue-300 text-blue-700 hover:bg-blue-50"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(building)}
+                          className="text-xs px-2 py-1 rounded border border-red-300 text-red-700 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
-                  </tr>
-                )
-              })}
+                  )}
+                </tr>
+              ))}
               {buildings.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={8}
-                    className="px-4 py-4 text-center text-sm text-gray-500"
-                  >
-                    No buildings found. If this is unexpected, ensure you are logged in and run the “Create default VIT
-                    buildings” action from Manual Entry.
+                  <td colSpan={user?.role === 'admin' ? 9 : 8} className="px-4 py-4 text-center text-sm text-gray-500">
+                    No buildings found for {defaultCampus || 'VIT Vellore'}. Reason: {error ? 'API error or auth issue.' : 'database has no building records.'}
                   </td>
                 </tr>
               )}
