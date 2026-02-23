@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
+import LoadingState from '../../components/ui/LoadingState'
 
 interface Building {
   id: number
@@ -142,21 +143,11 @@ export default function ManualEntry() {
   }
 
   if (loading || !authResolved) {
-    return (
-      <div className="sc-page px-4 py-6">
-        <h1 className="text-3xl sc-title mb-6">Manual Entry</h1>
-        <p className="text-gray-500">Resolving session...</p>
-      </div>
-    )
+    return <LoadingState label="Resolving session..." />
   }
 
   if (pageLoading) {
-    return (
-      <div className="sc-page px-4 py-6">
-        <h1 className="text-3xl sc-title mb-6">Manual Entry</h1>
-        <p className="text-gray-500">Loading buildings...</p>
-      </div>
-    )
+    return <LoadingState label="Loading buildings..." />
   }
 
   return (

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import api from '../services/api'
 import { format } from 'date-fns'
 import { useAuth } from '../contexts/AuthContext'
+import LoadingState from '../components/ui/LoadingState'
 
 function prettifyAlertType(type) {
   if (!type) return 'Alert'
@@ -186,11 +187,11 @@ export default function Alerts() {
   }
 
   if (authLoading || !authResolved) {
-    return <div className="text-center py-12">Resolving session...</div>
+    return <LoadingState label="Resolving session..." />
   }
 
   if (loading) {
-    return <div className="text-center py-12">Loading alerts...</div>
+    return <LoadingState label="Loading alerts..." />
   }
 
   return (

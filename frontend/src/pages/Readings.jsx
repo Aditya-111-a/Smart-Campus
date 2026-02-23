@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import api from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
+import LoadingState from '../components/ui/LoadingState'
+import ConfirmModal from '../components/ui/ConfirmModal'
 
 export default function Readings() {
   const { user, authResolved, loading, defaultCampus } = useAuth()
@@ -11,6 +13,9 @@ export default function Readings() {
   const [pageLoading, setPageLoading] = useState(false)
   const [error, setError] = useState(null)
   const [buildingsReason, setBuildingsReason] = useState(null)
+  const [editTarget, setEditTarget] = useState(null)
+  const [editForm, setEditForm] = useState({ value: '', reading_date: '' })
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   useEffect(() => {
     if (!authResolved || !user) return
@@ -55,28 +60,30 @@ export default function Readings() {
   }, [buildings])
 
   const handleEditReading = async (reading) => {
-    const nextValueRaw = window.prompt('Reading value', String(reading.value ?? ''))
-    if (nextValueRaw === null) return
-    const nextValue = Number(nextValueRaw)
+    setEditTarget(reading)
+    setEditForm({
+      value: String(reading.value ?? ''),
+      reading_date: format(new Date(reading.reading_date), "yyyy-MM-dd'T'HH:mm"),
+    })
+  }
+
+  const saveReadingEdit = async () => {
+    if (!editTarget) return
+    const nextValue = Number(editForm.value)
     if (!Number.isFinite(nextValue) || nextValue < 0) {
       // eslint-disable-next-line no-alert
       alert('Invalid value')
       return
     }
-    const nextDateInput = window.prompt(
-      'Reading date/time (YYYY-MM-DDTHH:mm)',
-      format(new Date(reading.reading_date), "yyyy-MM-dd'T'HH:mm"),
-    )
-    if (!nextDateInput) return
-
     try {
-      await api.put(`/readings/${reading.id}`, {
-        building_id: reading.building_id,
-        utility_type: reading.utility_type,
+      await api.put(`/readings/${editTarget.id}`, {
+        building_id: editTarget.building_id,
+        utility_type: editTarget.utility_type,
         value: nextValue,
-        reading_date: new Date(nextDateInput).toISOString(),
-        notes: reading.notes || undefined,
+        reading_date: new Date(editForm.reading_date).toISOString(),
+        notes: editTarget.notes || undefined,
       })
+      setEditTarget(null)
       await fetchData()
     } catch (err) {
       // eslint-disable-next-line no-alert
@@ -84,10 +91,11 @@ export default function Readings() {
     }
   }
 
-  const handleDeleteReading = async (reading) => {
-    if (!window.confirm(`Delete reading ${reading.id}?`)) return
+  const handleDeleteReading = async () => {
+    if (!deleteTarget) return
     try {
-      await api.delete(`/readings/${reading.id}`)
+      await api.delete(`/readings/${deleteTarget.id}`)
+      setDeleteTarget(null)
       await fetchData()
     } catch (err) {
       // eslint-disable-next-line no-alert
@@ -96,11 +104,11 @@ export default function Readings() {
   }
 
   if (loading || !authResolved) {
-    return <div className="text-center py-12">Resolving session...</div>
+    return <LoadingState label="Resolving session..." />
   }
 
   if (pageLoading) {
-    return <div className="text-center py-12">Loading readings...</div>
+    return <LoadingState label="Loading readings..." />
   }
 
   return (
@@ -171,7 +179,7 @@ export default function Readings() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDeleteReading(reading)}
+                            onClick={() => setDeleteTarget(reading)}
                             className="sc-btn sc-btn-danger text-xs px-2 py-1"
                           >
                             Delete
@@ -193,6 +201,58 @@ export default function Readings() {
           </table>
         </div>
       </div>
+
+      <ConfirmModal
+        open={Boolean(deleteTarget)}
+        title="Delete Reading"
+        description={deleteTarget ? `Delete reading #${deleteTarget.id}?` : ''}
+        confirmLabel="Delete"
+        destructive
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteReading}
+      />
+
+      {editTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-900/45 backdrop-blur-[1px]"
+            onClick={() => setEditTarget(null)}
+            aria-label="Close edit modal"
+          />
+          <div className="relative w-full max-w-md sc-card p-6">
+            <h3 className="text-lg sc-title">Edit Reading</h3>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Value</label>
+                <input
+                  type="number"
+                  className="sc-input block w-full"
+                  value={editForm.value}
+                  onChange={(e) => setEditForm((v) => ({ ...v, value: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Date & Time</label>
+                <input
+                  type="datetime-local"
+                  className="sc-input block w-full"
+                  value={editForm.reading_date}
+                  onChange={(e) => setEditForm((v) => ({ ...v, reading_date: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" className="sc-btn sc-btn-secondary px-3 py-2 text-sm" onClick={() => setEditTarget(null)}>
+                Cancel
+              </button>
+              <button type="button" className="sc-btn sc-btn-primary px-3 py-2 text-sm" onClick={saveReadingEdit}>
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

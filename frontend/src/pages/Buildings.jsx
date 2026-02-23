@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import api from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
+import LoadingState from '../components/ui/LoadingState'
+import ConfirmModal from '../components/ui/ConfirmModal'
 
 function formatTrend(value) {
   if (!Number.isFinite(value)) return '0.0%'
@@ -25,6 +27,9 @@ export default function Buildings() {
   const [pageLoading, setPageLoading] = useState(false)
   const [error, setError] = useState(null)
   const [showForm, setShowForm] = useState(false)
+  const [editTarget, setEditTarget] = useState(null)
+  const [editForm, setEditForm] = useState({ name: '', code: '', description: '' })
+  const [deleteTarget, setDeleteTarget] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -98,36 +103,43 @@ export default function Buildings() {
   }
 
   const handleEdit = async (building) => {
-    const nextName = window.prompt('Building name', building.name)
-    if (!nextName) return
-    const nextCode = window.prompt('Building code', building.code || '') || ''
-    const nextDescription = window.prompt('Description', building.description || '') || ''
-
-    try {
-      await api.put(`/buildings/${building.id}`, {
-        name: nextName.trim(),
-        code: nextCode.trim() || building.code,
-        description: nextDescription.trim() || undefined,
-        campus_name: building.campus_name || defaultCampus || 'VIT Vellore',
-        zone: building.zone || 'academic',
-        tags: building.tags || undefined,
-        is_24x7: Boolean(building.is_24x7),
-      })
-      await fetchOverview()
-    } catch (err) {
-      // eslint-disable-next-line no-alert
-      alert(err?.response?.data?.detail || 'Failed to update building')
-    }
+    setEditTarget(building)
+    setEditForm({
+      name: building.name || '',
+      code: building.code || '',
+      description: building.description || '',
+    })
   }
 
-  const handleDelete = async (building) => {
-    if (!window.confirm(`Delete building ${building.name}?`)) return
+  const handleDelete = async () => {
+    if (!deleteTarget) return
     try {
-      await api.delete(`/buildings/${building.id}`)
+      await api.delete(`/buildings/${deleteTarget.id}`)
+      setDeleteTarget(null)
       await fetchOverview()
     } catch (err) {
       // eslint-disable-next-line no-alert
       alert(err?.response?.data?.detail || 'Failed to delete building')
+    }
+  }
+
+  const submitEdit = async () => {
+    if (!editTarget) return
+    try {
+      await api.put(`/buildings/${editTarget.id}`, {
+        name: editForm.name.trim(),
+        code: editForm.code.trim() || editTarget.code,
+        description: editForm.description.trim() || undefined,
+        campus_name: editTarget.campus_name || defaultCampus || 'VIT Vellore',
+        zone: editTarget.zone || 'academic',
+        tags: editTarget.tags || undefined,
+        is_24x7: Boolean(editTarget.is_24x7),
+      })
+      setEditTarget(null)
+      await fetchOverview()
+    } catch (err) {
+      // eslint-disable-next-line no-alert
+      alert(err?.response?.data?.detail || 'Failed to update building')
     }
   }
 
@@ -144,11 +156,11 @@ export default function Buildings() {
   }, [buildings])
 
   if (loading || !authResolved) {
-    return <div className="text-center py-12">Resolving session...</div>
+    return <LoadingState label="Resolving session..." />
   }
 
   if (pageLoading) {
-    return <div className="text-center py-12">Loading all buildings overview...</div>
+    return <LoadingState label="Loading building overview..." />
   }
 
   return (
@@ -349,21 +361,21 @@ export default function Buildings() {
                               alert(err?.response?.data?.detail || 'Failed to toggle IoT')
                             }
                           }}
-                          className="text-xs px-2 py-1 rounded border border-purple-300 text-purple-700 hover:bg-purple-50"
+                          className="sc-btn sc-btn-secondary text-xs px-2 py-1"
                         >
                           IoT {building.iot_enabled ? 'On' : 'Off'}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleEdit(building)}
-                          className="text-xs px-2 py-1 rounded border border-blue-300 text-blue-700 hover:bg-blue-50"
+                          className="sc-btn sc-btn-secondary text-xs px-2 py-1"
                         >
                           Edit
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDelete(building)}
-                          className="text-xs px-2 py-1 rounded border border-red-300 text-red-700 hover:bg-red-50"
+                          onClick={() => setDeleteTarget(building)}
+                          className="sc-btn sc-btn-danger text-xs px-2 py-1"
                         >
                           Delete
                         </button>
@@ -383,6 +395,65 @@ export default function Buildings() {
           </table>
         </div>
       </div>
+
+      <ConfirmModal
+        open={Boolean(deleteTarget)}
+        title="Delete Building"
+        description={deleteTarget ? `Delete ${deleteTarget.name}? This will remove associated readings, alerts, IoT devices, and rules.` : ''}
+        confirmLabel="Delete"
+        destructive
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+      />
+
+      {editTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-900/45 backdrop-blur-[1px]"
+            onClick={() => setEditTarget(null)}
+            aria-label="Close edit modal"
+          />
+          <div className="relative w-full max-w-lg sc-card p-6">
+            <h3 className="text-lg sc-title">Edit Building</h3>
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                <input
+                  className="sc-input block w-full"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((v) => ({ ...v, name: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Code</label>
+                <input
+                  className="sc-input block w-full"
+                  value={editForm.code}
+                  onChange={(e) => setEditForm((v) => ({ ...v, code: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                <textarea
+                  className="sc-input block w-full"
+                  rows={3}
+                  value={editForm.description}
+                  onChange={(e) => setEditForm((v) => ({ ...v, description: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" className="sc-btn sc-btn-secondary px-3 py-2 text-sm" onClick={() => setEditTarget(null)}>
+                Cancel
+              </button>
+              <button type="button" className="sc-btn sc-btn-primary px-3 py-2 text-sm" onClick={submitEdit}>
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

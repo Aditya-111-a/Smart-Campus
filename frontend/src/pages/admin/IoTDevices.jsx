@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
+import LoadingState from '../../components/ui/LoadingState'
 
 export default function IoTDevices() {
   const { loading: authLoading, authResolved, user } = useAuth()
@@ -80,7 +81,7 @@ export default function IoTDevices() {
     }
   }
 
-  if (authLoading || !authResolved) return <div className="text-center py-12">Resolving session...</div>
+  if (authLoading || !authResolved) return <LoadingState label="Resolving session..." />
 
   return (
     <div className="sc-page px-4 py-6 space-y-6">

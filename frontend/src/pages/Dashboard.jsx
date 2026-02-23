@@ -3,13 +3,34 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import api from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import { format } from 'date-fns'
+import LoadingState from '../components/ui/LoadingState'
 
 const ZONE_COLORS = {
-  academic: '#3b82f6',
-  residential: '#10b981',
-  common: '#6366f1',
+  academic: '#0ea5a4',
+  residential: '#0284c7',
+  common: '#2563eb',
   administration: '#f97316',
-  research: '#ec4899',
+  research: '#14b8a6',
+}
+
+function ChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+  const labelText = (() => {
+    const asDate = new Date(label)
+    return Number.isNaN(asDate.getTime()) ? String(label ?? '') : format(asDate, 'MMM dd, yyyy')
+  })()
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white/95 px-3 py-2 shadow-lg backdrop-blur">
+      <p className="text-xs font-semibold text-slate-500 mb-1">{labelText}</p>
+      {payload.map((entry) => (
+        <div key={entry.dataKey} className="text-xs flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+          <span className="text-slate-700">{entry.name}:</span>
+          <span className="font-semibold text-slate-900">{Number(entry.value).toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export default function Dashboard() {
@@ -67,11 +88,11 @@ export default function Dashboard() {
   }
 
   if (authLoading || !authResolved) {
-    return <div className="text-center py-12">Resolving session...</div>
+    return <LoadingState label="Resolving session..." />
   }
 
   if (loading) {
-    return <div className="text-center py-12">Loading dashboard...</div>
+    return <LoadingState label="Loading dashboard data..." />
   }
 
   return (
@@ -110,9 +131,9 @@ export default function Dashboard() {
 
       {/* Total Consumption Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="sc-card p-6">
+        <div className="sc-card sc-stat-card p-6 transition hover:-translate-y-0.5 hover:shadow-xl">
           <h3 className="text-lg font-semibold text-gray-700 mb-2">Total Water Consumption</h3>
-          <p className="text-3xl font-bold text-blue-600">
+          <p className="text-3xl font-extrabold text-cyan-600">
             {totals?.total_water?.toLocaleString('en-US', { maximumFractionDigits: 2 }) || 0} L
           </p>
           <p className="text-sm text-gray-500 mt-2">
@@ -120,9 +141,9 @@ export default function Dashboard() {
             {format(new Date(totals?.period_end || new Date()), 'MMM dd, yyyy')}
           </p>
         </div>
-        <div className="sc-card p-6">
+        <div className="sc-card sc-stat-card p-6 transition hover:-translate-y-0.5 hover:shadow-xl">
           <h3 className="text-lg font-semibold text-gray-700 mb-2">Total Electricity Consumption</h3>
-          <p className="text-3xl font-bold text-green-600">
+          <p className="text-3xl font-extrabold text-blue-700">
             {totals?.total_electricity?.toLocaleString('en-US', { maximumFractionDigits: 2 }) || 0} kWh
           </p>
           <p className="text-sm text-gray-500 mt-2">
@@ -137,18 +158,16 @@ export default function Dashboard() {
         <h2 className="text-xl sc-title mb-4">Consumption Trend (Last {filters.days} Days)</h2>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={summary}>
-            <CartesianGrid strokeDasharray="3 3" />
+            <CartesianGrid strokeDasharray="4 4" stroke="#e2e8f0" />
             <XAxis
               dataKey="date"
               tickFormatter={(date) => format(new Date(date), 'MMM dd')}
             />
             <YAxis />
-            <Tooltip
-              labelFormatter={(date) => format(new Date(date), 'MMM dd, yyyy')}
-            />
+            <Tooltip content={<ChartTooltip />} />
             <Legend />
-            <Line type="monotone" dataKey="total_water" stroke="#3b82f6" name="Water (L)" />
-            <Line type="monotone" dataKey="total_electricity" stroke="#10b981" name="Electricity (kWh)" />
+            <Line type="monotone" dataKey="total_water" stroke="#0891b2" strokeWidth={2.4} dot={false} activeDot={{ r: 4 }} name="Water (L)" />
+            <Line type="monotone" dataKey="total_electricity" stroke="#2563eb" strokeWidth={2.4} dot={false} activeDot={{ r: 4 }} name="Electricity (kWh)" />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -172,7 +191,7 @@ export default function Dashboard() {
                   <Cell key={z.zone || idx} fill={ZONE_COLORS[z.zone] || '#9ca3af'} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip content={<ChartTooltip />} />
             </PieChart>
           </ResponsiveContainer>
           <ul className="mt-4 space-y-1 text-sm">
@@ -192,11 +211,11 @@ export default function Dashboard() {
               <h3 className="text-sm font-semibold text-gray-700 mb-2">Water</h3>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={rankings.water}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid strokeDasharray="4 4" stroke="#e2e8f0" />
                   <XAxis dataKey="building_name" hide />
                   <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="total_consumption" fill="#3b82f6" />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Bar dataKey="total_consumption" fill="#0891b2" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
               <div className="mt-2">
@@ -212,11 +231,11 @@ export default function Dashboard() {
               <h3 className="text-sm font-semibold text-gray-700 mb-2">Electricity</h3>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={rankings.electricity}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid strokeDasharray="4 4" stroke="#e2e8f0" />
                   <XAxis dataKey="building_name" hide />
                   <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="total_consumption" fill="#10b981" />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Bar dataKey="total_consumption" fill="#2563eb" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
               <div className="mt-2">

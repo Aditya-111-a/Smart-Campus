@@ -17,6 +17,7 @@ import {
 } from 'recharts'
 import api from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
+import LoadingState from '../components/ui/LoadingState'
 
 const ZONE_COLORS = ['#2563eb', '#16a34a', '#ea580c', '#7c3aed', '#0f766e', '#9333ea']
 
@@ -119,7 +120,7 @@ export default function Reports() {
   }, [analytics])
 
   if (loading || !authResolved) {
-    return <div className="text-center py-12">Resolving session...</div>
+    return <LoadingState label="Resolving session..." />
   }
 
   return (
