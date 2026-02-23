@@ -5,45 +5,30 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_
 
 from app.database import get_db
-from app.models import UtilityReading, Building, User, UtilityType
-from app.schemas import ReadingCreate, ReadingResponse
-from app.auth import get_current_active_user
+from app.models import UtilityReading, User, UtilityType, Building, Alert
+from app.schemas import ReadingCreate, ReadingResponse, ReadingUpdate
+from app.auth import get_current_active_user, get_current_admin_user
+from app.ingestion import create_reading_from_payload
 
 router = APIRouter()
 
-@router.post("/", response_model=ReadingResponse, status_code=201)
+@router.post("", response_model=ReadingResponse, status_code=201)
 def create_reading(
     reading: ReadingCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    # Verify building exists
-    building = db.query(Building).filter(Building.id == reading.building_id).first()
-    if not building:
-        raise HTTPException(
-            status_code=404,
-            detail="Building not found"
-        )
-    
-    # Set unit based on utility type
-    unit = "liters" if reading.utility_type == UtilityType.WATER else "kWh"
-    
-    db_reading = UtilityReading(
-        **reading.dict(),
-        unit=unit,
-        recorded_by=current_user.id
+    db_reading = create_reading_from_payload(
+        db=db,
+        payload=reading,
+        recorded_by=current_user.id,
     )
-    db.add(db_reading)
     db.commit()
     db.refresh(db_reading)
-    
-    # Trigger anomaly detection (async in production)
-    from app.anomaly_detection import check_anomalies
-    check_anomalies(db, db_reading)
-    
+
     return db_reading
 
-@router.get("/", response_model=List[ReadingResponse])
+@router.get("", response_model=List[ReadingResponse])
 def list_readings(
     building_id: Optional[int] = Query(None),
     utility_type: Optional[UtilityType] = Query(None),
@@ -82,3 +67,48 @@ def get_reading(
             detail="Reading not found"
         )
     return reading
+
+
+@router.put("/{reading_id}", response_model=ReadingResponse)
+def update_reading(
+    reading_id: int,
+    reading_update: ReadingUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    reading = db.query(UtilityReading).filter(UtilityReading.id == reading_id).first()
+    if not reading:
+        raise HTTPException(status_code=404, detail="Reading not found")
+
+    update_data = reading_update.dict(exclude_unset=True)
+    if "building_id" in update_data:
+        exists = db.query(Building).filter(Building.id == update_data["building_id"]).first()
+        if not exists:
+            raise HTTPException(status_code=404, detail="Building not found")
+
+    if "utility_type" in update_data:
+        utility_type = update_data["utility_type"]
+        reading.unit = "liters" if utility_type == UtilityType.WATER else "kWh"
+
+    for field, value in update_data.items():
+        setattr(reading, field, value)
+
+    db.commit()
+    db.refresh(reading)
+    return reading
+
+
+@router.delete("/{reading_id}", status_code=204)
+def delete_reading(
+    reading_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    reading = db.query(UtilityReading).filter(UtilityReading.id == reading_id).first()
+    if not reading:
+        raise HTTPException(status_code=404, detail="Reading not found")
+    # Preserve alert history while removing the reading row.
+    db.query(Alert).filter(Alert.reading_id == reading_id).update({"reading_id": None})
+    db.delete(reading)
+    db.commit()
+    return None

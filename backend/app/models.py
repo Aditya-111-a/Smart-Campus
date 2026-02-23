@@ -31,6 +31,7 @@ class AlertType(str, enum.Enum):
     SPIKE = "spike"
     THRESHOLD_BREACH = "threshold_breach"
     CONTINUOUS_HIGH = "continuous_high"
+    RULE_TRIGGER = "rule_trigger"
 
 class User(Base):
     __tablename__ = "users"
@@ -70,6 +71,7 @@ class Building(Base):
     created_by_user = relationship("User", back_populates="buildings")
     readings = relationship("UtilityReading", back_populates="building")
     alerts = relationship("Alert", back_populates="building")
+    iot_devices = relationship("IoTDevice", back_populates="building")
 
 class UtilityReading(Base):
     __tablename__ = "utility_readings"
@@ -111,3 +113,46 @@ class Alert(Base):
     reading = relationship("UtilityReading")
     acknowledged_by_user = relationship("User", foreign_keys=[acknowledged_by])
     resolved_by_user = relationship("User", foreign_keys=[resolved_by])
+
+
+class IoTDevice(Base):
+    __tablename__ = "iot_devices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(String, unique=True, index=True, nullable=False)
+    name = Column(String, nullable=False)
+    building_id = Column(Integer, ForeignKey("buildings.id"), nullable=False)
+    utility_type = Column(SQLEnum(UtilityType), nullable=False)
+    device_key = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    last_seen_at = Column(DateTime(timezone=True), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    building = relationship("Building", back_populates="iot_devices")
+    created_by_user = relationship("User")
+
+
+class AlertRule(Base):
+    __tablename__ = "alert_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    # scope_type: global | zone | building
+    scope_type = Column(String, default="global", nullable=False, index=True)
+    building_id = Column(Integer, ForeignKey("buildings.id"), nullable=True)
+    zone = Column(SQLEnum(ZoneCategory), nullable=True, index=True)
+    utility_type = Column(SQLEnum(UtilityType), nullable=False, index=True)
+    # condition_type: threshold | zscore | rate_of_change
+    condition_type = Column(String, nullable=False, index=True)
+    threshold_value = Column(Float, nullable=False)
+    comparison_window_days = Column(Integer, default=7, nullable=False)
+    consecutive_count = Column(Integer, default=1, nullable=False)
+    severity = Column(String, default="medium", nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    building = relationship("Building")
+    created_by_user = relationship("User")

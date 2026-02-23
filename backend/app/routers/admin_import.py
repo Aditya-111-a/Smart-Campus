@@ -4,13 +4,21 @@ from typing import List
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.auth import get_current_admin_user
 from app.database import get_db, engine
-from app.models import Building, UtilityReading, UtilityType, User
+from app.models import User
 from app.schemas import ImportSummary, ImportErrorRow
-from app.anomaly_detection import check_anomalies
 from app.vit_buildings import vit_building_definitions
+from app.schemas import ReadingCreate
+from app.ingestion import (
+    create_reading_from_payload,
+    parse_import_timestamp,
+    parse_import_utility,
+    parse_import_value,
+    resolve_building_for_import,
+)
 import seed_data
 
 
@@ -78,83 +86,45 @@ async def import_readings(
         try:
             timestamp_raw = row.get("timestamp")
             building_label = str(row.get("building")).strip()
-            utility_raw = str(row.get("utility")).strip().lower()
+            utility_raw = row.get("utility")
             value_raw = row.get("value")
 
-            if not building_label:
-                raise ValueError("building is empty")
+            reading_date = parse_import_timestamp(timestamp_raw)
+            utility_type = parse_import_utility(utility_raw)
+            value = parse_import_value(value_raw)
 
-            try:
-                # Normalise all timestamps to UTC
-                reading_ts = pd.to_datetime(timestamp_raw, utc=True)
-            except Exception:
-                raise ValueError(f"invalid timestamp: {timestamp_raw!r}")
-
-            try:
-                value = float(value_raw)
-            except Exception:
-                raise ValueError(f"invalid value: {value_raw!r}")
-
-            if utility_raw not in ("water", "electricity"):
-                raise ValueError(f"invalid utility: {utility_raw!r}")
-
-            utility_type = UtilityType.WATER if utility_raw == "water" else UtilityType.ELECTRICITY
-            unit = "liters" if utility_type == UtilityType.WATER else "kWh"
-
-            # Find or create building by code or name
-            building = (
-                db.query(Building)
-                .filter(
-                    (Building.code == building_label)
-                    | (Building.name == building_label)
-                )
-                .first()
-            )
-            if not building:
-                # Derive a deterministic code from the label (uppercase, no spaces)
-                base_code = "".join(ch for ch in building_label.upper() if ch.isalnum())[:16] or building_label[:16]
-                code = base_code
-                suffix = 1
-                while (
-                    db.query(Building)
-                    .filter(Building.code == code)
-                    .first()
-                ):
-                    suffix += 1
-                    code = f"{base_code[:14]}{suffix:02d}"[:16]
-
-                building = Building(
-                    name=building_label,
-                    code=code,
-                    description="Imported from readings file",
-                    campus_name="VIT Vellore",
+            with db.begin_nested():
+                building = resolve_building_for_import(
+                    db=db,
+                    building_label=building_label,
                     created_by=current_user.id,
                 )
-                db.add(building)
-                db.flush()  # get id
-
-            db_reading = UtilityReading(
-                building_id=building.id,
-                utility_type=utility_type,
-                value=value,
-                unit=unit,
-                reading_date=reading_ts.to_pydatetime(),
-                recorded_by=current_user.id,
-                notes="Imported via admin CSV/Excel",
-            )
-            db.add(db_reading)
-            db.flush()
-
-            # Run anomaly checks for this reading
-            check_anomalies(db, db_reading)
-
+                payload = ReadingCreate(
+                    building_id=building.id,
+                    utility_type=utility_type,
+                    value=value,
+                    reading_date=reading_date,
+                    notes="Imported via admin CSV/Excel",
+                )
+                create_reading_from_payload(
+                    db=db,
+                    payload=payload,
+                    recorded_by=current_user.id,
+                    notes="Imported via admin CSV/Excel",
+                )
             success_count += 1
-        except Exception as exc:
+        except HTTPException as exc:
+            failed_rows.append(
+                ImportErrorRow(row_number=row_number, error=str(exc.detail))
+            )
+        except (ValueError, SQLAlchemyError) as exc:
             failed_rows.append(
                 ImportErrorRow(row_number=row_number, error=str(exc))
             )
-            # Do not abort the whole import; continue with other rows
-            db.rollback()
+        except Exception as exc:  # noqa: BLE001
+            failed_rows.append(
+                ImportErrorRow(row_number=row_number, error=f"unexpected error: {exc}")
+            )
 
     # Final commit for all successfully added rows
     try:
@@ -257,4 +227,3 @@ async def reset_vit_demo(
         "status": "ok",
         "message": "Database reset to VIT default demo state.",
     }
-
