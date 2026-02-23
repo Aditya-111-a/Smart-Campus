@@ -1,0 +1,22 @@
+# Commit Message Guidelines
+
+## Format
+<type>: <subject>
+
+<body>
+
+## Types
+- feat: New feature
+- fix: Bug fix
+- docs: Documentation changes
+- style: Code style changes (formatting, etc.)
+- refactor: Code refactoring
+- perf: Performance improvements
+- test: Adding or updating tests
+- chore: Maintenance tasks
+
+## Examples
+feat: Add user authentication system
+fix: Resolve database connection timeout issue
+docs: Update API documentation
+refactor: Improve anomaly detection algorithm
